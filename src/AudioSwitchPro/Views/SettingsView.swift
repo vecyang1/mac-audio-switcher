@@ -3,7 +3,8 @@ import ServiceManagement
 
 struct SettingsView: View {
     @AppStorage("autoStartEnabled") private var autoStartEnabled = false
-    @AppStorage("globalShortcut") private var globalShortcut = "⌘⌥A"
+    @AppStorage("globalShortcut") private var globalShortcut = ""
+    @State private var enableGlobalShortcut = false
     @State private var isRecordingShortcut = false
     @State private var recordedKeys: [String] = []
     @Environment(\.dismiss) private var dismiss
@@ -48,33 +49,44 @@ struct SettingsView: View {
                     
                     // Keyboard Shortcuts Section
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Keyboard Shortcuts")
+                        Text("Global Panel Shortcut")
                             .font(.headline)
                         
                         VStack(alignment: .leading, spacing: 16) {
-                            // Global Toggle
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Toggle Last Two Devices")
-                                            .font(.body)
-                                        Text("Quickly switch between your two most recently used devices")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
+                            // Enable/Disable Global Shortcut
+                            VStack(alignment: .leading, spacing: 12) {
+                                Toggle("Enable global shortcut to show/hide panel", isOn: $enableGlobalShortcut)
+                                    .onChange(of: enableGlobalShortcut) { newValue in
+                                        if !newValue {
+                                            globalShortcut = ""
+                                            AudioManager.shared.refreshShortcuts()
+                                        }
                                     }
-                                    
-                                    Spacer()
-                                    
-                                    Button(action: startRecordingShortcut) {
-                                        Text(isRecordingShortcut ? "Press keys..." : globalShortcut)
-                                            .frame(minWidth: 100)
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 6)
-                                            .background(isRecordingShortcut ? Color.accentColor : Color(NSColor.controlColor))
-                                            .foregroundColor(isRecordingShortcut ? .white : .primary)
-                                            .cornerRadius(6)
+                                
+                                if enableGlobalShortcut {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("Panel Toggle Shortcut")
+                                                .font(.body)
+                                            Text("Show/hide AudioSwitch Pro from anywhere")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Button(action: startRecordingShortcut) {
+                                            Text(isRecordingShortcut ? "Press keys..." : (globalShortcut.isEmpty ? "Set Shortcut" : globalShortcut))
+                                                .frame(minWidth: 100)
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 6)
+                                                .background(isRecordingShortcut ? Color.accentColor : Color(NSColor.controlColor))
+                                                .foregroundColor(isRecordingShortcut ? .white : .primary)
+                                                .cornerRadius(6)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .disabled(!enableGlobalShortcut)
                                     }
-                                    .buttonStyle(.plain)
                                 }
                             }
                             .padding()
@@ -124,6 +136,10 @@ struct SettingsView: View {
         }
         .frame(width: 500, height: 450)
         .background(Color(NSColor.windowBackgroundColor))
+        .onAppear {
+            // Initialize the toggle state based on whether a shortcut exists
+            enableGlobalShortcut = !globalShortcut.isEmpty
+        }
     }
     
     @State private var settingsEventMonitor: Any?

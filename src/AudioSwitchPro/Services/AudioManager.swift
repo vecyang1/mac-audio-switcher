@@ -2,6 +2,7 @@ import Foundation
 import CoreAudio
 import AVFAudio
 import Combine
+import AppKit
 
 class AudioManager: ObservableObject {
     @Published var devices: [AudioDevice] = []
@@ -405,18 +406,36 @@ class AudioManager: ObservableObject {
         updateShortcutRegistrations()
     }
     
+    func toggleAppPanel() {
+        DispatchQueue.main.async {
+            // Get the main app window
+            if let window = NSApplication.shared.windows.first(where: { $0.title.isEmpty || $0.title == "AudioSwitch Pro" }) {
+                if window.isVisible && window.isMiniaturized == false {
+                    // Hide the window
+                    window.orderOut(nil)
+                    print("🫥 App panel hidden")
+                } else {
+                    // Show and bring to front
+                    window.makeKeyAndOrderFront(nil)
+                    NSApplication.shared.activate(ignoringOtherApps: true)
+                    print("👁️ App panel shown")
+                }
+            }
+        }
+    }
+    
     private func updateShortcutRegistrations() {
         print("🔄 Updating shortcut registrations...")
         
         // Clear all existing shortcuts
         ShortcutManager.shared.clearAllShortcuts()
         
-        // Register global toggle shortcut
-        if let globalShortcut = UserDefaults.standard.globalShortcut {
-            print("📝 Registering global toggle shortcut: \(globalShortcut)")
-            ShortcutManager.shared.registerShortcut(globalShortcut, identifier: "global.toggle") {
-                print("🔄 Global toggle shortcut triggered")
-                self.toggleBetweenLastTwo()
+        // Register global panel toggle shortcut (optional)
+        if let globalShortcut = UserDefaults.standard.globalShortcut, !globalShortcut.isEmpty {
+            print("📝 Registering global panel shortcut: \(globalShortcut)")
+            ShortcutManager.shared.registerShortcut(globalShortcut, identifier: "global.panel") {
+                print("🪟 Global panel shortcut triggered")
+                self.toggleAppPanel()
             }
         }
         

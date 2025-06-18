@@ -18,7 +18,7 @@ class ShortcutManager {
     func updateShortcut(_ shortcut: String) {
         // Update global shortcut
         UserDefaults.standard.set(shortcut, forKey: "globalShortcut")
-        AudioManager.shared.refreshDevices()
+        AudioManager.shared.refreshShortcuts()
     }
     
     func clearAllShortcuts() {

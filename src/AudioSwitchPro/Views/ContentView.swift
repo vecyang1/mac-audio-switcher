@@ -78,22 +78,24 @@ struct HeaderView: View {
 }
 
 struct FooterView: View {
-    @AppStorage("globalShortcut") private var shortcut = "⌘⌥A"
+    @AppStorage("globalShortcut") private var shortcut = ""
     
     var body: some View {
         HStack {
-            HStack(spacing: 4) {
-                Label("Global Toggle", systemImage: "keyboard")
-                Text(shortcut)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.secondary.opacity(0.2))
-                    .cornerRadius(4)
+            if !shortcut.isEmpty {
+                HStack(spacing: 4) {
+                    Label("Show Panel", systemImage: "keyboard")
+                    Text(shortcut)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.2))
+                        .cornerRadius(4)
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+                
+                Spacer()
             }
-            .font(.caption)
-            .foregroundColor(.secondary)
-            
-            Spacer()
             
             Text("Set shortcuts: Click button OR right-click device")
                 .font(.caption)
