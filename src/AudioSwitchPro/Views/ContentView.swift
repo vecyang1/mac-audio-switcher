@@ -13,6 +13,16 @@ struct ContentView: View {
             
             Divider()
             
+            // Error Banner (if any)
+            if !audioManager.isHealthy, let error = audioManager.lastError {
+                ErrorBannerView(error: error) {
+                    // Retry action
+                    audioManager.refreshDevices()
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
+            }
+            
             // Device List
             ScrollView {
                 VStack(spacing: 12) {

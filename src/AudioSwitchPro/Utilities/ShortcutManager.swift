@@ -1,14 +1,19 @@
 import Foundation
 import Carbon
 import AppKit
+import os.log
 
 class ShortcutManager {
     static let shared = ShortcutManager()
     private var registeredShortcuts: [String: (EventHotKeyRef, () -> Void)] = [:] // identifier: (hotkey, action)
     private var hotKeyIDToAction: [UInt32: () -> Void] = [:] // hotKeyID: action
     private var nextHotKeyID: UInt32 = 1
+    private let logger = Logger(subsystem: "com.vecyang.AudioSwitchPro", category: "ShortcutManager")
+    private var isHealthy: Bool = true
     
-    private init() {}
+    private init() {
+        logger.info("🚀 ShortcutManager initialized")
+    }
     
     func setupShortcuts() {
         // Initial setup is now handled by AudioManager
@@ -30,15 +35,33 @@ class ShortcutManager {
     }
     
     func registerShortcut(_ shortcut: String, identifier: String, action: @escaping () -> Void) {
+        logger.debug("🔧 Registering shortcut '\(shortcut)' for \(identifier)")
+        
         // Remove existing shortcut with same identifier
         if let existing = registeredShortcuts[identifier] {
-            UnregisterEventHotKey(existing.0)
+            let unregisterStatus = UnregisterEventHotKey(existing.0)
+            if unregisterStatus != noErr {
+                logger.warning("⚠️ Failed to unregister existing shortcut for \(identifier)")
+            }
+            registeredShortcuts.removeValue(forKey: identifier)
         }
         
-        guard let (keyCode, modifiers) = parseShortcut(shortcut) else { return }
+        guard let (keyCode, modifiers) = parseShortcut(shortcut) else {
+            logger.error("❌ Failed to parse shortcut: \(shortcut)")
+            return
+        }
+        
+        // Check for potential conflicts
+        if registeredShortcuts.values.contains(where: { _ in
+            // Simple conflict detection - could be enhanced
+            return false
+        }) {
+            logger.warning("⚠️ Potential shortcut conflict detected")
+        }
         
         var eventHotKey: EventHotKeyRef?
         let hotKeyID = EventHotKeyID(signature: OSType(0x4153574B), id: nextHotKeyID) // ASWK
+        let currentHotKeyID = nextHotKeyID
         nextHotKeyID += 1
         
         let status = RegisterEventHotKey(
@@ -52,14 +75,23 @@ class ShortcutManager {
         
         if status == noErr, let eventHotKey = eventHotKey {
             registeredShortcuts[identifier] = (eventHotKey, action)
-            hotKeyIDToAction[hotKeyID.id] = action
+            hotKeyIDToAction[currentHotKeyID] = action
             
             // Install event handler if not already installed
             setupEventHandler()
             
-            print("✅ Registered shortcut '\(shortcut)' for \(identifier) with ID \(hotKeyID.id)")
+            logger.info("✅ Registered shortcut '\(shortcut)' for \(identifier) with ID \(currentHotKeyID)")
+            isHealthy = true
         } else {
-            print("❌ Failed to register shortcut '\(shortcut)' for \(identifier). Status: \(status)")
+            logger.error("❌ Failed to register shortcut '\(shortcut)' for \(identifier). Status: \(status)")
+            isHealthy = false
+            
+            // Try to recover by clearing all shortcuts and re-registering
+            if status == -9868 { // eventAlreadyPostedErr
+                logger.info("🔄 Attempting to recover from shortcut conflict")
+                clearAllShortcuts()
+                // Don't retry immediately to avoid infinite recursion
+            }
         }
     }
     

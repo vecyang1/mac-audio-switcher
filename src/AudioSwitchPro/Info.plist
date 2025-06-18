@@ -17,20 +17,39 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>1.0.0</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>100</string>
     <key>LSMinimumSystemVersion</key>
-    <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+    <string>12.0</string>
     <key>NSMainStoryboardFile</key>
     <string>Main</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.utilities</string>
+    <key>LSUIElement</key>
+    <false/>
     <key>NSAppleEventsUsageDescription</key>
-    <string>AudioSwitch Pro needs accessibility permissions to register global keyboard shortcuts.</string>
+    <string>AudioSwitch Pro needs accessibility permissions to register global keyboard shortcuts for quick audio device switching.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>AudioSwitch Pro may access audio input settings to provide comprehensive audio device management.</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2024 AudioSwitch Pro. All rights reserved. Contact: viviscallers@gmail.com</string>
+    <key>CFBundleDisplayName</key>
+    <string>AudioSwitch Pro</string>
+    <key>CFBundleGetInfoString</key>
+    <string>AudioSwitch Pro 1.0.0, Copyright © 2024 AudioSwitch Pro. Professional audio device switching for macOS.</string>
+    <key>NSRequiresAquaSystemAppearance</key>
+    <false/>
+    <key>LSSupportsOpeningDocumentsInPlace</key>
+    <false/>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <false/>
+    </dict>
+    <key>NSSystemAdministrationUsageDescription</key>
+    <string>AudioSwitch Pro may require elevated permissions to manage system audio preferences.</string>
 </dict>
 </plist>
