@@ -114,7 +114,7 @@ struct SettingsView: View {
                                 Text("Developer")
                                     .foregroundColor(.secondary)
                                 Spacer()
-                                Link("Vec Yang", destination: URL(string: "https://github.com/vecyang1")!)
+                                Link("viviscallers@gmail.com", destination: URL(string: "mailto:viviscallers@gmail.com")!)
                             }
                             
                             Divider()
