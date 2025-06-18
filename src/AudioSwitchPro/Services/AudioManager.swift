@@ -209,6 +209,11 @@ class AudioManager: ObservableObject {
         // Get device name
         let name = getDeviceName(deviceID) ?? "Unknown Device"
         
+        // Filter out aggregate devices that confuse users
+        if name.lowercased().contains("aggregate") || name.contains("CADefaultDeviceAggregate") {
+            return nil
+        }
+        
         // Get transport type
         let transportType = getDeviceTransportType(deviceID)
         
@@ -400,8 +405,26 @@ class AudioManager: ObservableObject {
             return
         }
         
-        // Save current output volume before switching (for AirPods issue)
+        // Check if switching to/from AirPods
+        let deviceName = getDeviceName(audioObjectID)?.lowercased() ?? ""
+        let isAirPodsRelated = deviceName.contains("airpod") || 
+                               (activeInputDeviceID != nil && 
+                                getDeviceName(getAudioObjectID(from: activeInputDeviceID!) ?? 0)?.lowercased().contains("airpod") ?? false)
+        
+        // Save current output volume and device before switching (for AirPods issue)
         let currentOutputVolume = getCurrentOutputVolume()
+        let currentOutputDevice = activeOutputDeviceID
+        
+        // For AirPods, we need to be more aggressive
+        var savedOutputVolumes: [String: Float32] = [:]
+        if isAirPodsRelated {
+            // Save all output device volumes
+            for device in outputDevices {
+                if let deviceID = getAudioObjectID(from: device.id) {
+                    savedOutputVolumes[device.id] = getDeviceVolume(deviceID)
+                }
+            }
+        }
         
         var propertyAddress = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultInputDevice,
@@ -431,11 +454,34 @@ class AudioManager: ObservableObject {
                 lastTwoInputDeviceIDs.removeAll { $0 == deviceID }
                 lastTwoInputDeviceIDs.insert(deviceID, at: 0)
             }
-            refreshDevices()
             
-            // Restore output volume if it changed (common with AirPods)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                self?.restoreOutputVolumeIfNeeded(currentOutputVolume)
+            // Add a small delay to prevent audio flash/disturbance
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                self?.refreshDevices()
+                
+                // For AirPods, restore all device volumes
+                if isAirPodsRelated {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        for (deviceID, volume) in savedOutputVolumes {
+                            if let audioDeviceID = self?.getAudioObjectID(from: deviceID) {
+                                self?.setDeviceVolume(audioDeviceID, volume: volume)
+                            }
+                        }
+                    }
+                }
+                
+                // Check if output device changed (common with AirPods)
+                if let self = self, let currentOutputDevice = currentOutputDevice,
+                   self.activeOutputDeviceID != currentOutputDevice {
+                    print("⚠️ Output device changed after input switch, reverting...")
+                    // Switch back to the original output device
+                    self.switchToDevice(currentOutputDevice)
+                }
+                
+                // Always restore volume after a delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self?.restoreOutputVolumeIfNeeded(currentOutputVolume)
+                }
             }
             
             // Restart input monitoring for the new device
@@ -1062,28 +1108,54 @@ class AudioManager: ObservableObject {
         
         let currentVolume = getCurrentOutputVolume()
         
-        // If volume changed significantly (more than 5%), restore it
-        if abs(currentVolume - previousVolume) > 0.05 {
-            var propertyAddress = AudioObjectPropertyAddress(
-                mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
-                mScope: kAudioDevicePropertyScopeOutput,
-                mElement: kAudioObjectPropertyElementMain
-            )
-            
-            var volumeToSet = previousVolume
-            
-            let status = AudioObjectSetPropertyData(
-                deviceID,
-                &propertyAddress,
-                0,
-                nil,
-                UInt32(MemoryLayout<Float32>.size),
-                &volumeToSet
-            )
-            
-            if status == noErr {
-                print("🔊 Restored output volume to \(Int(previousVolume * 100))%")
-            }
+        // If volume changed at all, restore it (AirPods can have sudden jumps)
+        if abs(currentVolume - previousVolume) > 0.01 {
+            setDeviceVolume(deviceID, volume: previousVolume)
+        }
+    }
+    
+    private func getDeviceVolume(_ deviceID: AudioObjectID) -> Float32 {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        var volume: Float32 = 0.0
+        var dataSize = UInt32(MemoryLayout<Float32>.size)
+        
+        let status = AudioObjectGetPropertyData(
+            deviceID,
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize,
+            &volume
+        )
+        
+        return status == noErr ? volume : 0.0
+    }
+    
+    private func setDeviceVolume(_ deviceID: AudioObjectID, volume: Float32) {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        var volumeToSet = volume
+        
+        let status = AudioObjectSetPropertyData(
+            deviceID,
+            &propertyAddress,
+            0,
+            nil,
+            UInt32(MemoryLayout<Float32>.size),
+            &volumeToSet
+        )
+        
+        if status == noErr {
+            print("🔊 Set device volume to \(Int(volume * 100))%")
         }
     }
 }
