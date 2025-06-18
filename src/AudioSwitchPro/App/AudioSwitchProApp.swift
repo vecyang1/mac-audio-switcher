@@ -20,6 +20,9 @@ struct AudioSwitchProApp: App {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Ensure dock icon is visible (normal app behavior)
+        NSApp.setActivationPolicy(.regular)
+        
         // Set up auto-start if enabled
         if UserDefaults.standard.autoStartEnabled {
             // Auto-start logic will be implemented here
@@ -30,6 +33,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        return true
+        return false // Keep app running in background when window closed
     }
 }

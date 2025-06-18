@@ -408,17 +408,46 @@ class AudioManager: ObservableObject {
     
     func toggleAppPanel() {
         DispatchQueue.main.async {
-            // Get the main app window
-            if let window = NSApplication.shared.windows.first(where: { $0.title.isEmpty || $0.title == "AudioSwitch Pro" }) {
-                if window.isVisible && window.isMiniaturized == false {
-                    // Hide the window
+            // Get all app windows and find the main content window
+            let allWindows = NSApplication.shared.windows
+            print("🔍 Found \\(allWindows.count) total windows")
+            
+            // Find main window - look for ContentView or main app window
+            let mainWindow = allWindows.first { window in
+                // Check if it's the main content window (not settings, not panel)
+                let isMainWindow = !window.isSheet && 
+                                 window.level == .normal &&
+                                 (window.contentViewController != nil || window.contentView != nil)
+                
+                if isMainWindow {
+                    print("📋 Found potential main window: \\(window.title) - visible: \\(window.isVisible)")
+                }
+                return isMainWindow
+            }
+            
+            if let window = mainWindow {
+                if window.isVisible && !window.isMiniaturized {
+                    // Hide the window (but keep app running)
                     window.orderOut(nil)
-                    print("🫥 App panel hidden")
+                    print("🫥 Main panel hidden - app running in background")
                 } else {
                     // Show and bring to front
+                    window.setIsVisible(true)
                     window.makeKeyAndOrderFront(nil)
                     NSApplication.shared.activate(ignoringOtherApps: true)
-                    print("👁️ App panel shown")
+                    print("👁️ Main panel shown and focused")
+                }
+            } else {
+                // If no window found, activate the app to create/show window
+                print("🚨 No main window found, activating app")
+                NSApplication.shared.activate(ignoringOtherApps: true)
+                
+                // Try again after a short delay to find the window
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    if let newWindow = NSApplication.shared.windows.first(where: { !$0.isSheet && $0.level == .normal }) {
+                        newWindow.makeKeyAndOrderFront(nil)
+                        print("🆕 Found and showed new window")
+                    }
                 }
             }
         }
