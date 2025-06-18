@@ -847,10 +847,23 @@ class AudioManager: ObservableObject {
         }
         saveStarredDevices()
         
-        // Update the device in the array
+        // Update the device in the devices array
         if let index = devices.firstIndex(where: { $0.id == deviceID }) {
             devices[index].isStarred = starredDeviceIDs.contains(deviceID)
+            
+            // Also update in saved devices to ensure persistence
+            if let savedIndex = savedDevices.firstIndex(where: { $0.id == deviceID }) {
+                savedDevices[savedIndex].isStarred = starredDeviceIDs.contains(deviceID)
+            } else {
+                // If not in saved devices, add it
+                var deviceToSave = devices[index]
+                deviceToSave.isStarred = starredDeviceIDs.contains(deviceID)
+                savedDevices.append(deviceToSave)
+            }
         }
+        
+        // Save the updated saved devices
+        saveSavedDevices()
         
         // Refresh to reorder
         refreshDevices()
@@ -860,10 +873,23 @@ class AudioManager: ObservableObject {
         hiddenDeviceIDs.insert(deviceID)
         saveHiddenDevices()
         
-        // Update the device in the array
+        // Update the device in the devices array
         if let index = devices.firstIndex(where: { $0.id == deviceID }) {
             devices[index].isHidden = true
+            
+            // Also update in saved devices to ensure persistence
+            if let savedIndex = savedDevices.firstIndex(where: { $0.id == deviceID }) {
+                savedDevices[savedIndex].isHidden = true
+            } else {
+                // If not in saved devices, add it
+                var deviceToSave = devices[index]
+                deviceToSave.isHidden = true
+                savedDevices.append(deviceToSave)
+            }
         }
+        
+        // Save the updated saved devices
+        saveSavedDevices()
         
         // Force UI update
         DispatchQueue.main.async {
@@ -885,11 +911,33 @@ class AudioManager: ObservableObject {
             savedDevices[index].isHidden = false
         }
         
+        // Save the updated saved devices
+        saveSavedDevices()
+        
         refreshDevices()
     }
     
     func getHiddenDevices() -> [AudioDevice] {
-        return savedDevices.filter { $0.isHidden }
+        // Get all devices that are marked as hidden
+        var hiddenDevices: [AudioDevice] = []
+        
+        // First check current devices
+        for device in devices where hiddenDeviceIDs.contains(device.id) {
+            var hiddenDevice = device
+            hiddenDevice.isHidden = true
+            hiddenDevices.append(hiddenDevice)
+        }
+        
+        // Then check saved devices for any that aren't in current devices
+        for savedDevice in savedDevices where hiddenDeviceIDs.contains(savedDevice.id) {
+            if !hiddenDevices.contains(where: { $0.id == savedDevice.id }) {
+                var hiddenDevice = savedDevice
+                hiddenDevice.isHidden = true
+                hiddenDevices.append(hiddenDevice)
+            }
+        }
+        
+        return hiddenDevices
     }
     
     private func loadStarredDevices() {
