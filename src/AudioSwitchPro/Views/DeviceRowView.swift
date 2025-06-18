@@ -10,7 +10,7 @@ struct DeviceRowView: View {
     
     @State private var isRecordingShortcut = false
     @State private var eventMonitor: Any?
-    @State private var inputLevel: Float = 0.0
+    @StateObject private var audioManager = AudioManager.shared
     
     private var backgroundColor: Color {
         if device.isActive {
@@ -77,7 +77,7 @@ struct DeviceRowView: View {
                         .font(.caption2)
                         .foregroundColor(device.isActive ? .accentColor : .secondary)
                     
-                    InputLevelIndicator(level: device.isActive ? 0.3 : 0.0) // Placeholder level
+                    InputLevelIndicator(level: audioManager.getInputLevel(for: device.id))
                         .frame(width: 50, height: 8)
                         .help("Microphone input level")
                 }

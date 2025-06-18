@@ -105,6 +105,14 @@ struct ContentView: View {
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
+        .onAppear {
+            // Start monitoring when window appears
+            audioManager.startInputMonitoring()
+        }
+        .onDisappear {
+            // Stop monitoring when window disappears
+            audioManager.stopInputMonitoring()
+        }
     }
 }
 

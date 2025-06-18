@@ -1,13 +1,17 @@
 import Foundation
 import CoreAudio
 import AVFAudio
+import AVFoundation
 import Combine
 import AppKit
+import Accelerate
 
 class AudioManager: ObservableObject {
     @Published var devices: [AudioDevice] = []
     @Published var activeOutputDeviceID: String?
     @Published var activeInputDeviceID: String?
+    @Published var inputLevels: [String: Float] = [:] // DeviceID: Level (0.0 to 1.0)
+    @Published var isMonitoringInput = false
     
     var outputDevices: [AudioDevice] {
         devices.filter { $0.isOutput }
@@ -22,6 +26,13 @@ class AudioManager: ObservableObject {
     private let propertyListenerQueue = DispatchQueue(label: "com.audioswitch.propertylistener")
     private var deviceShortcuts: [String: String] = [:] // DeviceID: Shortcut
     private var savedDevices: [AudioDevice] = [] // Keep track of all seen devices
+    
+    // Input monitoring properties
+    private var audioEngine: AVAudioEngine?
+    private var inputLevelTimer: Timer?
+    private var currentInputLevel: Float = 0.0
+    private let updateInterval: TimeInterval = 0.1 // 10 Hz update rate
+    private var windowObserver: Any?
     
     static let shared = AudioManager()
     
@@ -389,6 +400,9 @@ class AudioManager: ObservableObject {
             return
         }
         
+        // Save current output volume before switching (for AirPods issue)
+        let currentOutputVolume = getCurrentOutputVolume()
+        
         var propertyAddress = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultInputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -418,6 +432,19 @@ class AudioManager: ObservableObject {
                 lastTwoInputDeviceIDs.insert(deviceID, at: 0)
             }
             refreshDevices()
+            
+            // Restore output volume if it changed (common with AirPods)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.restoreOutputVolumeIfNeeded(currentOutputVolume)
+            }
+            
+            // Restart input monitoring for the new device
+            if isMonitoringInput {
+                stopInputMonitoring()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                    self?.startInputMonitoring()
+                }
+            }
         } else {
             print("❌ Failed to switch to input device \(deviceID), status: \(status)")
         }
@@ -877,5 +904,186 @@ class AudioManager: ObservableObject {
         }
         
         print("✅ Shortcut registration complete")
+    }
+    
+    // MARK: - Input Level Monitoring
+    
+    func startInputMonitoring() {
+        guard !isMonitoringInput else { return }
+        
+        // Check microphone permission first
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            startMonitoringEngine()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
+                if granted {
+                    DispatchQueue.main.async {
+                        self?.startMonitoringEngine()
+                    }
+                }
+            }
+        default:
+            print("❌ Microphone access denied")
+        }
+    }
+    
+    private func startMonitoringEngine() {
+        audioEngine = AVAudioEngine()
+        guard let audioEngine = audioEngine else { return }
+        
+        let inputNode = audioEngine.inputNode
+        let format = inputNode.inputFormat(forBus: 0)
+        
+        // Validate format
+        guard format.sampleRate > 0 && format.channelCount > 0 else {
+            print("❌ Invalid audio format")
+            return
+        }
+        
+        // Install tap with small buffer size for efficiency
+        inputNode.installTap(onBus: 0, bufferSize: 512, format: format) { [weak self] buffer, _ in
+            self?.processAudioBuffer(buffer)
+        }
+        
+        do {
+            try audioEngine.start()
+            isMonitoringInput = true
+            
+            // Start timer for UI updates
+            inputLevelTimer = Timer.scheduledTimer(withTimeInterval: updateInterval, repeats: true) { [weak self] _ in
+                self?.updateInputLevels()
+            }
+            
+            print("🎤 Started input monitoring")
+        } catch {
+            print("❌ Failed to start audio engine: \(error)")
+        }
+    }
+    
+    func stopInputMonitoring() {
+        audioEngine?.stop()
+        audioEngine?.inputNode.removeTap(onBus: 0)
+        audioEngine = nil
+        
+        inputLevelTimer?.invalidate()
+        inputLevelTimer = nil
+        
+        isMonitoringInput = false
+        currentInputLevel = 0.0
+        
+        // Clear all levels
+        DispatchQueue.main.async {
+            self.inputLevels = [:]
+        }
+        
+        print("🛑 Stopped input monitoring")
+    }
+    
+    private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
+        guard let channelData = buffer.floatChannelData else { return }
+        
+        let channelCount = Int(buffer.format.channelCount)
+        let frameLength = Int(buffer.frameLength)
+        
+        var rms: Float = 0.0
+        
+        // Use Accelerate framework for efficient RMS calculation
+        for channel in 0..<channelCount {
+            var channelRMS: Float = 0.0
+            vDSP_rmsqv(channelData[channel], 1, &channelRMS, vDSP_Length(frameLength))
+            rms += channelRMS
+        }
+        
+        rms /= Float(channelCount)
+        
+        // Convert to decibels and normalize
+        let db = 20 * log10(max(0.000001, rms))
+        let normalized = (db + 60) / 60 // Map -60dB to 0dB to 0.0 to 1.0
+        
+        // Smooth the value
+        currentInputLevel = (currentInputLevel * 0.7) + (normalized * 0.3)
+        currentInputLevel = max(0, min(1, currentInputLevel))
+    }
+    
+    private func updateInputLevels() {
+        if let activeInputID = activeInputDeviceID {
+            DispatchQueue.main.async {
+                self.inputLevels[activeInputID] = self.currentInputLevel
+                
+                // Set inactive devices to 0
+                for device in self.inputDevices {
+                    if device.id != activeInputID {
+                        self.inputLevels[device.id] = 0.0
+                    }
+                }
+            }
+        }
+    }
+    
+    func getInputLevel(for deviceID: String) -> Float {
+        return inputLevels[deviceID] ?? 0.0
+    }
+    
+    // MARK: - Volume Management (for AirPods issue)
+    
+    private func getCurrentOutputVolume() -> Float32 {
+        guard let activeOutputID = activeOutputDeviceID,
+              let deviceID = getAudioObjectID(from: activeOutputID) else { return 0.0 }
+        
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        var volume: Float32 = 0.0
+        var dataSize = UInt32(MemoryLayout<Float32>.size)
+        
+        let status = AudioObjectGetPropertyData(
+            deviceID,
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize,
+            &volume
+        )
+        
+        if status == noErr {
+            return volume
+        }
+        
+        return 0.0
+    }
+    
+    private func restoreOutputVolumeIfNeeded(_ previousVolume: Float32) {
+        guard let activeOutputID = activeOutputDeviceID,
+              let deviceID = getAudioObjectID(from: activeOutputID) else { return }
+        
+        let currentVolume = getCurrentOutputVolume()
+        
+        // If volume changed significantly (more than 5%), restore it
+        if abs(currentVolume - previousVolume) > 0.05 {
+            var propertyAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            
+            var volumeToSet = previousVolume
+            
+            let status = AudioObjectSetPropertyData(
+                deviceID,
+                &propertyAddress,
+                0,
+                nil,
+                UInt32(MemoryLayout<Float32>.size),
+                &volumeToSet
+            )
+            
+            if status == noErr {
+                print("🔊 Restored output volume to \(Int(previousVolume * 100))%")
+            }
+        }
     }
 }
