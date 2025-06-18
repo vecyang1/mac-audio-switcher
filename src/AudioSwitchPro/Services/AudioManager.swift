@@ -8,14 +8,20 @@ class AudioManager: ObservableObject {
     @Published var devices: [AudioDevice] = []
     @Published var activeDeviceID: String?
     
+    var outputDevices: [AudioDevice] {
+        devices.filter { $0.isOutput }
+    }
+    
     private var lastTwoDeviceIDs: [String] = []
     private let propertyListenerQueue = DispatchQueue(label: "com.audioswitch.propertylistener")
     private var deviceShortcuts: [String: String] = [:] // DeviceID: Shortcut
+    private var savedDevices: [AudioDevice] = [] // Keep track of all seen devices
     
     static let shared = AudioManager()
     
     init() {
         loadDeviceShortcuts()
+        loadSavedDevices()
         refreshDevices()
         setupPropertyListeners()
     }
@@ -68,10 +74,39 @@ class AudioManager: ObservableObject {
             // Apply saved shortcuts to devices
             for i in 0..<devices.count {
                 devices[i].shortcut = self.deviceShortcuts[devices[i].id]
+                devices[i].isOnline = true
             }
             
-            self.devices = devices.sorted { $0.name < $1.name }
+            // Update saved devices with current online devices
+            for device in devices {
+                if let index = self.savedDevices.firstIndex(where: { $0.id == device.id }) {
+                    self.savedDevices[index] = device
+                } else {
+                    self.savedDevices.append(device)
+                }
+            }
+            
+            // Mark saved devices as offline if not currently connected
+            let currentDeviceIDs = Set(devices.map { $0.id })
+            for i in 0..<self.savedDevices.count {
+                if !currentDeviceIDs.contains(self.savedDevices[i].id) {
+                    self.savedDevices[i].isOnline = false
+                    self.savedDevices[i].isActive = false
+                }
+            }
+            
+            // Include offline bluetooth devices in the device list
+            var finalDevices = devices
+            for savedDevice in self.savedDevices {
+                if !currentDeviceIDs.contains(savedDevice.id) && 
+                   (savedDevice.transportType == .bluetooth || savedDevice.transportType == .airPlay) {
+                    finalDevices.append(savedDevice)
+                }
+            }
+            
+            self.devices = finalDevices.sorted { $0.name < $1.name }
             self.activeDeviceID = defaultOutputID
+            self.saveSavedDevices()
             
             // Update last two devices
             if let activeID = self.activeDeviceID {
@@ -85,6 +120,9 @@ class AudioManager: ObservableObject {
             
             // Update shortcuts in ShortcutManager
             self.updateShortcutRegistrations()
+            
+            // Post notification for device changes
+            NotificationCenter.default.post(name: Notification.Name("AudioDevicesChanged"), object: nil)
         }
     }
     
@@ -273,6 +311,10 @@ class AudioManager: ObservableObject {
         }
     }
     
+    func setDevice(_ device: AudioDevice) {
+        switchToDevice(device.id)
+    }
+    
     private func getAudioObjectID(from uid: String) -> AudioObjectID? {
         var propertyAddress = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDevices,
@@ -399,6 +441,19 @@ class AudioManager: ObservableObject {
     private func saveDeviceShortcuts() {
         if let data = try? JSONEncoder().encode(deviceShortcuts) {
             UserDefaults.standard.set(data, forKey: "deviceShortcuts")
+        }
+    }
+    
+    private func loadSavedDevices() {
+        if let data = UserDefaults.standard.data(forKey: "savedAudioDevices"),
+           let devices = try? JSONDecoder().decode([AudioDevice].self, from: data) {
+            savedDevices = devices
+        }
+    }
+    
+    private func saveSavedDevices() {
+        if let data = try? JSONEncoder().encode(savedDevices) {
+            UserDefaults.standard.set(data, forKey: "savedAudioDevices")
         }
     }
     

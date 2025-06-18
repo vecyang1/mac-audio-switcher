@@ -1,20 +1,31 @@
 # AudioSwitch Pro
 
-A modern macOS application for seamless audio device switching with customizable keyboard shortcuts.
+<div align="center">
+  <img src="design/icon_256x256.png" alt="AudioSwitch Pro Icon" width="128" height="128" />
+  <h3>Modern macOS Audio Device Switching</h3>
+</div>
 
-## Features (MVP v1.0)
+**🎉 Production Ready Universal App** - Works on Intel and Apple Silicon Macs automatically!
 
-- 🎵 **Instant Audio Switching** - Switch between audio devices with one click
-- 🖥️ **Beautiful Native UI** - Clean, modern SwiftUI interface
-- ⌨️ **Global Shortcut** - Toggle between last two devices with a keyboard shortcut
-- 🚀 **Auto-start Option** - Launch at login (optional)
-- ✅ **Simple & Fast** - No complex settings, just works
+## ✨ Features
 
-### Coming in v2.0
-- Multiple device shortcuts
-- Device favorites and custom names
-- Battery level monitoring
-- Advanced device management
+### 🎯 **Current v1.0 (Released)**
+- 🎵 **Instant Audio Switching** - Click to switch between any audio device
+- ⌨️ **Individual Device Shortcuts** - Assign custom shortcuts to each device  
+- 🖱️ **Right-Click Context Menus** - Easy shortcut assignment directly on devices
+- 🖥️ **Global Panel Toggle** - Optional shortcut to show/hide the app panel
+- 🌐 **Background Operation** - Runs in background with dock icon when closed
+- 🔄 **Real-time Detection** - Automatically discovers connected audio devices
+- 💾 **Persistent Settings** - Remembers shortcuts between app launches
+- 🛡️ **Universal Binary** - Native performance on Intel + Apple Silicon Macs
+- 📱 **macOS 12.0+** - Full compatibility across all modern Mac models
+
+### 🚀 **Ready for Distribution**
+- ✅ **Production App** - AudioSwitchPro.app (universal binary)
+- ✅ **Distribution Package** - AudioSwitchPro-Universal-v1.0.zip  
+- ✅ **Professional Icon** - Beautiful gradient design
+- ✅ **Code Signed** - Ready for notarization and App Store
+- ✅ **Cross-Mac Compatible** - Works on all Intel and Apple Silicon Macs
 
 ## Requirements
 

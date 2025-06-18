@@ -7,6 +7,7 @@ struct AudioDevice: Identifiable, Equatable, Codable {
     let transportType: TransportType
     var isActive: Bool          // Currently selected
     var shortcut: String?       // Custom keyboard shortcut
+    var isOnline: Bool = true   // Whether device is currently connected
     
     enum TransportType: String, Codable {
         case bluetooth = "Bluetooth"

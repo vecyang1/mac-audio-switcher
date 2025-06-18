@@ -22,6 +22,19 @@ struct DeviceRowView: View {
     
     var body: some View {
         HStack(spacing: 16) {
+            // Active Indicator (moved to left)
+            if device.isActive {
+                Image(systemName: "speaker.wave.3.fill")
+                    .font(.body)
+                    .foregroundColor(.accentColor)
+                    .frame(width: 20)
+                    // .symbolEffect(.variableColor.iterative, isActive: device.isActive) // Available in macOS 14+
+            } else {
+                // Empty space for alignment when not active
+                Color.clear
+                    .frame(width: 20)
+            }
+            
             // Device Icon
             Image(systemName: device.transportType.icon)
                 .font(.title2)
@@ -33,14 +46,18 @@ struct DeviceRowView: View {
                 Text(device.name)
                     .font(.body)
                     .fontWeight(device.isActive ? .medium : .regular)
-                    .foregroundColor(device.isActive ? .primary : .primary.opacity(0.9))
+                    .foregroundColor(device.isOnline ? (device.isActive ? .primary : .primary.opacity(0.9)) : .secondary)
                 
                 HStack(spacing: 8) {
                     Text(device.transportType.rawValue)
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    if device.isActive {
+                    if !device.isOnline {
+                        Label("Offline", systemImage: "circle")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else if device.isActive {
                         Label("Active", systemImage: "checkmark.circle.fill")
                             .font(.caption)
                             .foregroundColor(.accentColor)
@@ -85,14 +102,6 @@ struct DeviceRowView: View {
                     .help("Click to assign a keyboard shortcut")
                 }
             }
-            
-            // Active Indicator
-            if device.isActive {
-                Image(systemName: "speaker.wave.3.fill")
-                    .font(.body)
-                    .foregroundColor(.accentColor)
-                    // .symbolEffect(.variableColor.iterative, isActive: device.isActive) // Available in macOS 14+
-            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -106,7 +115,7 @@ struct DeviceRowView: View {
         .animation(.easeInOut(duration: 0.15), value: isHovered)
         .contentShape(Rectangle()) // Make entire row clickable
         .onTapGesture {
-            if !isRecordingShortcut {
+            if !isRecordingShortcut && device.isOnline {
                 onSwitchDevice()
             }
         }

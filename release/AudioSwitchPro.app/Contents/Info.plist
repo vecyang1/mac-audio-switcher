@@ -12,6 +12,10 @@
 	<string>AudioSwitchPro</string>
 	<key>CFBundleGetInfoString</key>
 	<string>AudioSwitch Pro 1.0.0, Copyright © 2024 AudioSwitch Pro. Professional audio device switching for macOS.</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.vecyang.AudioSwitchPro</string>
 	<key>CFBundleInfoDictionaryVersion</key>

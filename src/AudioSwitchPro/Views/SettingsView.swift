@@ -4,6 +4,8 @@ import ServiceManagement
 struct SettingsView: View {
     @AppStorage("autoStartEnabled") private var autoStartEnabled = false
     @AppStorage("globalShortcut") private var globalShortcut = ""
+    @AppStorage("showDockIcon") private var showDockIcon = true
+    @AppStorage("showMenuBarIcon") private var showMenuBarIcon = false
     @State private var enableGlobalShortcut = false
     @State private var isRecordingShortcut = false
     @State private var recordedKeys: [String] = []
@@ -36,10 +38,29 @@ struct SettingsView: View {
                         Text("General")
                             .font(.headline)
                         
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 12) {
                             Toggle("Launch at login", isOn: $autoStartEnabled)
                                 .onChange(of: autoStartEnabled) { newValue in
                                     configureAutoStart(newValue)
+                                }
+                            
+                            Divider()
+                            
+                            Toggle("Show icon in Dock", isOn: $showDockIcon)
+                                .onChange(of: showDockIcon) { newValue in
+                                    updateDockIconVisibility(newValue)
+                                }
+                            
+                            if !showDockIcon && !showMenuBarIcon {
+                                Label("Enable menu bar icon to access the app when dock icon is hidden", systemImage: "exclamationmark.triangle.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                                    .padding(.vertical, 4)
+                            }
+                            
+                            Toggle("Show icon in menu bar", isOn: $showMenuBarIcon)
+                                .onChange(of: showMenuBarIcon) { newValue in
+                                    updateMenuBarIcon(newValue)
                                 }
                         }
                         .padding()
@@ -55,38 +76,36 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 16) {
                             // Enable/Disable Global Shortcut
                             VStack(alignment: .leading, spacing: 12) {
-                                Toggle("Enable global shortcut to show/hide panel", isOn: $enableGlobalShortcut)
-                                    .onChange(of: enableGlobalShortcut) { newValue in
-                                        if !newValue {
-                                            globalShortcut = ""
-                                            AudioManager.shared.refreshShortcuts()
+                                HStack {
+                                    Toggle("", isOn: $enableGlobalShortcut)
+                                        .onChange(of: enableGlobalShortcut) { newValue in
+                                            if !newValue {
+                                                globalShortcut = ""
+                                                AudioManager.shared.refreshShortcuts()
+                                            }
                                         }
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Panel Toggle Shortcut")
+                                            .font(.body)
+                                        Text("Show/hide AudioSwitch Pro from anywhere")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
                                     }
-                                
-                                if enableGlobalShortcut {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Panel Toggle Shortcut")
-                                                .font(.body)
-                                            Text("Show/hide AudioSwitch Pro from anywhere")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                        
-                                        Spacer()
-                                        
-                                        Button(action: startRecordingShortcut) {
-                                            Text(isRecordingShortcut ? "Press keys..." : (globalShortcut.isEmpty ? "Set Shortcut" : globalShortcut))
-                                                .frame(minWidth: 100)
-                                                .padding(.horizontal, 12)
-                                                .padding(.vertical, 6)
-                                                .background(isRecordingShortcut ? Color.accentColor : Color(NSColor.controlColor))
-                                                .foregroundColor(isRecordingShortcut ? .white : .primary)
-                                                .cornerRadius(6)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .disabled(!enableGlobalShortcut)
+                                    
+                                    Spacer()
+                                    
+                                    Button(action: startRecordingShortcut) {
+                                        Text(isRecordingShortcut ? "Press keys..." : (globalShortcut.isEmpty ? "Set Shortcut" : globalShortcut))
+                                            .frame(minWidth: 100)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 6)
+                                            .background(isRecordingShortcut ? Color.accentColor : Color(NSColor.controlColor))
+                                            .foregroundColor(isRecordingShortcut ? .white : .primary)
+                                            .cornerRadius(6)
                                     }
+                                    .buttonStyle(.plain)
+                                    .disabled(!enableGlobalShortcut)
                                 }
                             }
                             .padding()
@@ -114,16 +133,21 @@ struct SettingsView: View {
                                 Text("Developer")
                                     .foregroundColor(.secondary)
                                 Spacer()
-                                Link("viviscallers@gmail.com", destination: URL(string: "mailto:viviscallers@gmail.com")!)
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text("Vec")
+                                        .font(.body)
+                                    Link("viviscallers@gmail.com", destination: URL(string: "mailto:viviscallers@gmail.com")!)
+                                        .font(.caption)
+                                }
                             }
                             
                             Divider()
                             
                             HStack {
-                                Text("Source Code")
+                                Text("Project")
                                     .foregroundColor(.secondary)
                                 Spacer()
-                                Link("GitHub", destination: URL(string: "https://github.com/vecyang1/mac-audio-switcher")!)
+                                Link("GitHub", destination: URL(string: "https://github.com/vecyang1")!)
                             }
                         }
                         .padding()
@@ -134,7 +158,7 @@ struct SettingsView: View {
                 .padding()
             }
         }
-        .frame(width: 500, height: 450)
+        .frame(width: 450, height: 500)
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             // Initialize the toggle state based on whether a shortcut exists
@@ -223,6 +247,26 @@ struct SettingsView: View {
                 print("Failed to configure auto-start: \(error)")
             }
         }
+    }
+    
+    private func updateDockIconVisibility(_ show: Bool) {
+        if show {
+            NSApp.setActivationPolicy(.regular)
+        } else {
+            // When hiding dock icon, ensure menu bar icon is enabled
+            if !showMenuBarIcon {
+                showMenuBarIcon = true
+                updateMenuBarIcon(true)
+            }
+            NSApp.setActivationPolicy(.accessory)
+        }
+    }
+    
+    private func updateMenuBarIcon(_ show: Bool) {
+        // This will be handled by AudioManager
+        NotificationCenter.default.post(name: Notification.Name("UpdateMenuBarIcon"), 
+                                      object: nil, 
+                                      userInfo: ["show": show])
     }
 }
 
