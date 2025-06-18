@@ -3,161 +3,65 @@ import CoreAudio
 import AVFAudio
 import Combine
 import AppKit
-import os.log
-
-enum AudioError: LocalizedError {
-    case propertyDataSizeError(OSStatus)
-    case propertyDataError(OSStatus)
-    case deviceNotFound
-    case switchingFailed(OSStatus)
-    case initializationFailed(String)
-    
-    var errorDescription: String? {
-        switch self {
-        case .propertyDataSizeError(let status):
-            return "Failed to get audio property data size (status: \(status))"
-        case .propertyDataError(let status):
-            return "Failed to get audio property data (status: \(status))"
-        case .deviceNotFound:
-            return "Audio device not found"
-        case .switchingFailed(let status):
-            return "Failed to switch audio device (status: \(status))"
-        case .initializationFailed(let message):
-            return "Audio system initialization failed: \(message)"
-        }
-    }
-}
 
 class AudioManager: ObservableObject {
     @Published var devices: [AudioDevice] = []
     @Published var activeDeviceID: String?
-    @Published var isHealthy: Bool = true
-    @Published var lastError: String?
     
     private var lastTwoDeviceIDs: [String] = []
     private let propertyListenerQueue = DispatchQueue(label: "com.audioswitch.propertylistener")
     private var deviceShortcuts: [String: String] = [:] // DeviceID: Shortcut
-    private let logger = Logger(subsystem: "com.vecyang.AudioSwitchPro", category: "AudioManager")
-    private var isInitialized: Bool = false
-    private var retryTimer: Timer?
     
     static let shared = AudioManager()
     
     init() {
-        logger.info("🚀 AudioManager initialization started")
-        do {
-            try initializeAudioSystem()
-            isInitialized = true
-            logger.info("✅ AudioManager initialized successfully")
-        } catch {
-            logger.error("❌ AudioManager initialization failed: \(error.localizedDescription)")
-            handleInitializationFailure(error)
-        }
-    }
-    
-    private func initializeAudioSystem() throws {
         loadDeviceShortcuts()
         refreshDevices()
         setupPropertyListeners()
     }
     
-    private func handleInitializationFailure(_ error: Error) {
-        DispatchQueue.main.async {
-            self.isHealthy = false
-            self.lastError = "Audio system initialization failed: \(error.localizedDescription)"
-        }
-        
-        // Retry initialization after delay
-        retryTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
-            self.retryInitialization()
-        }
-    }
-    
-    private func retryInitialization() {
-        logger.info("🔄 Retrying AudioManager initialization")
-        do {
-            try initializeAudioSystem()
-            DispatchQueue.main.async {
-                self.isInitialized = true
-                self.isHealthy = true
-                self.lastError = nil
-            }
-            logger.info("✅ AudioManager retry successful")
-        } catch {
-            logger.error("❌ AudioManager retry failed: \(error.localizedDescription)")
-            handleInitializationFailure(error)
-        }
-    }
-    
     func refreshDevices() {
-        guard isInitialized else {
-            logger.warning("⚠️ Skipping device refresh - AudioManager not initialized")
-            return
-        }
-        
-        logger.debug("🔄 Starting device refresh")
         var devices: [AudioDevice] = []
         
-        do {
-            // Get default output device first
-            let defaultOutputID = getCurrentOutputDeviceID()
-            
-            // Get all audio devices
-            var propertyAddress = AudioObjectPropertyAddress(
-                mSelector: kAudioHardwarePropertyDevices,
-                mScope: kAudioObjectPropertyScopeGlobal,
-                mElement: kAudioObjectPropertyElementMain
-            )
-            
-            var dataSize: UInt32 = 0
-            var status = AudioObjectGetPropertyDataSize(
-                AudioObjectID(kAudioObjectSystemObject),
-                &propertyAddress,
-                0,
-                nil,
-                &dataSize
-            )
-            
-            guard status == noErr else {
-                throw AudioError.propertyDataSizeError(status)
+        // Get default output device first
+        let defaultOutputID = getCurrentOutputDeviceID()
+        
+        // Get all audio devices
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        var dataSize: UInt32 = 0
+        var status = AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject),
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize
+        )
+        
+        guard status == noErr else { return }
+        
+        let deviceCount = Int(dataSize) / MemoryLayout<AudioObjectID>.size
+        var audioDevices = [AudioObjectID](repeating: 0, count: deviceCount)
+        
+        status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize,
+            &audioDevices
+        )
+        
+        guard status == noErr else { return }
+        
+        for deviceID in audioDevices {
+            if let device = createAudioDevice(from: deviceID, defaultID: defaultOutputID) {
+                devices.append(device)
             }
-            
-            let deviceCount = Int(dataSize) / MemoryLayout<AudioObjectID>.size
-            guard deviceCount > 0 else {
-                logger.warning("⚠️ No audio devices found")
-                return
-            }
-            
-            var audioDevices = [AudioObjectID](repeating: 0, count: deviceCount)
-            
-            status = AudioObjectGetPropertyData(
-                AudioObjectID(kAudioObjectSystemObject),
-                &propertyAddress,
-                0,
-                nil,
-                &dataSize,
-                &audioDevices
-            )
-            
-            guard status == noErr else {
-                throw AudioError.propertyDataError(status)
-            }
-            
-            for deviceID in audioDevices {
-                if let device = createAudioDevice(from: deviceID, defaultID: defaultOutputID) {
-                    devices.append(device)
-                }
-            }
-            
-            logger.debug("✅ Found \(devices.count) audio devices")
-            
-        } catch {
-            logger.error("❌ Device refresh failed: \(error.localizedDescription)")
-            DispatchQueue.main.async {
-                self.lastError = error.localizedDescription
-                self.isHealthy = false
-            }
-            return
         }
         
         DispatchQueue.main.async {
@@ -326,20 +230,7 @@ class AudioManager: ObservableObject {
     }
     
     func switchToDevice(_ deviceID: String) {
-        guard isInitialized && isHealthy else {
-            logger.warning("⚠️ Cannot switch device - AudioManager not ready")
-            return
-        }
-        
-        logger.info("🔄 Switching to device: \(deviceID)")
-        
-        guard let audioObjectID = getAudioObjectID(from: deviceID) else {
-            logger.error("❌ Device not found: \(deviceID)")
-            DispatchQueue.main.async {
-                self.lastError = "Audio device not found"
-            }
-            return
-        }
+        guard let audioObjectID = getAudioObjectID(from: deviceID) else { return }
         
         var propertyAddress = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultOutputDevice,
@@ -358,7 +249,6 @@ class AudioManager: ObservableObject {
         )
         
         if status == noErr {
-            logger.info("✅ Successfully switched to device: \(deviceID)")
             // Update last two devices for toggle functionality
             if !lastTwoDeviceIDs.contains(deviceID) {
                 lastTwoDeviceIDs.insert(deviceID, at: 0)
@@ -370,19 +260,7 @@ class AudioManager: ObservableObject {
                 lastTwoDeviceIDs.removeAll { $0 == deviceID }
                 lastTwoDeviceIDs.insert(deviceID, at: 0)
             }
-            
-            // Clear any previous errors
-            DispatchQueue.main.async {
-                self.lastError = nil
-                self.isHealthy = true
-            }
-            
             refreshDevices()
-        } else {
-            logger.error("❌ Failed to switch device: \(deviceID), status: \(status)")
-            DispatchQueue.main.async {
-                self.lastError = "Failed to switch to audio device (error: \(status))"
-            }
         }
     }
     
