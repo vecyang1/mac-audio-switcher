@@ -21,71 +21,108 @@ struct SettingsView: View {
                 Button("Done") {
                     dismiss()
                 }
+                .keyboardShortcut(.cancelAction)
             }
             .padding()
             
             Divider()
             
             // Settings Content
-            Form {
-                Section {
-                    Toggle("Launch at login", isOn: $autoStartEnabled)
-                        .onChange(of: autoStartEnabled) { newValue in
-                            configureAutoStart(newValue)
-                        }
-                } header: {
-                    Text("General")
-                        .font(.headline)
-                }
-                
-                Section {
-                    HStack {
-                        Text("Toggle shortcut")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // General Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("General")
+                            .font(.headline)
                         
-                        Spacer()
-                        
-                        Button(action: startRecordingShortcut) {
-                            Text(isRecordingShortcut ? "Press keys..." : globalShortcut)
-                                .frame(minWidth: 100)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(isRecordingShortcut ? Color.accentColor : Color.secondary.opacity(0.2))
-                                .foregroundColor(isRecordingShortcut ? .white : .primary)
-                                .cornerRadius(6)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Toggle("Launch at login", isOn: $autoStartEnabled)
+                                .onChange(of: autoStartEnabled) { newValue in
+                                    configureAutoStart(newValue)
+                                }
                         }
-                        .buttonStyle(.plain)
+                        .padding()
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .cornerRadius(8)
                     }
                     
-                    Text("Use this shortcut to quickly toggle between your last two audio devices")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                } header: {
-                    Text("Keyboard Shortcuts")
-                        .font(.headline)
-                }
-                
-                Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("AudioSwitch Pro v1.0")
-                            .font(.body)
+                    // Keyboard Shortcuts Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Keyboard Shortcuts")
+                            .font(.headline)
                         
-                        Link("View on GitHub", destination: URL(string: "https://github.com/vecyang1/mac-audio-switcher")!)
-                            .font(.caption)
-                        
-                        Text("Made with ❤️ for the Mac community")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        VStack(alignment: .leading, spacing: 16) {
+                            // Global Toggle
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Toggle Last Two Devices")
+                                            .font(.body)
+                                        Text("Quickly switch between your two most recently used devices")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Button(action: startRecordingShortcut) {
+                                        Text(isRecordingShortcut ? "Press keys..." : globalShortcut)
+                                            .frame(minWidth: 100)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 6)
+                                            .background(isRecordingShortcut ? Color.accentColor : Color(NSColor.controlColor))
+                                            .foregroundColor(isRecordingShortcut ? .white : .primary)
+                                            .cornerRadius(6)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding()
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(8)
+                        }
                     }
-                    .padding(.vertical, 4)
-                } header: {
-                    Text("About")
-                        .font(.headline)
+                    
+                    // About Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("About")
+                            .font(.headline)
+                        
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("Version")
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("1.0")
+                            }
+                            
+                            Divider()
+                            
+                            HStack {
+                                Text("Developer")
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Link("Vec Yang", destination: URL(string: "https://github.com/vecyang1")!)
+                            }
+                            
+                            Divider()
+                            
+                            HStack {
+                                Text("Source Code")
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Link("GitHub", destination: URL(string: "https://github.com/vecyang1/mac-audio-switcher")!)
+                            }
+                        }
+                        .padding()
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .cornerRadius(8)
+                    }
                 }
+                .padding()
             }
-            // .formStyle(.grouped) // Available in macOS 13+
-            // .scrollContentBackground(.hidden) // Available in macOS 13+
         }
-        .frame(width: 450, height: 400)
+        .frame(width: 500, height: 450)
         .background(Color(NSColor.windowBackgroundColor))
     }
     

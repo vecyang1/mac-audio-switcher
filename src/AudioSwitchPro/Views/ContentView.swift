@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var audioManager = AudioManager.shared
     @State private var showSettings = false
+    @State private var showDeviceShortcuts = false
     @State private var hoveredDeviceID: String?
     
     var body: some View {
@@ -35,12 +36,15 @@ struct ContentView: View {
             Divider()
             
             // Footer
-            FooterView()
+            FooterView(showDeviceShortcuts: $showDeviceShortcuts)
                 .padding()
         }
         .background(Color(NSColor.windowBackgroundColor))
         .sheet(isPresented: $showSettings) {
             SettingsView()
+        }
+        .sheet(isPresented: $showDeviceShortcuts) {
+            DeviceShortcutsView(audioManager: audioManager)
         }
     }
 }
@@ -73,21 +77,28 @@ struct HeaderView: View {
 
 struct FooterView: View {
     @AppStorage("globalShortcut") private var shortcut = "⌘⌥A"
+    @Binding var showDeviceShortcuts: Bool
     
     var body: some View {
         HStack {
-            Label("Toggle shortcut", systemImage: "keyboard")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            HStack(spacing: 4) {
+                Label("Toggle", systemImage: "keyboard")
+                Text(shortcut)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.secondary.opacity(0.2))
+                    .cornerRadius(4)
+            }
+            .font(.caption)
+            .foregroundColor(.secondary)
             
             Spacer()
             
-            Text(shortcut)
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.secondary.opacity(0.2))
-                .cornerRadius(4)
+            Button(action: { showDeviceShortcuts = true }) {
+                Label("Device Shortcuts", systemImage: "keyboard.badge.ellipsis")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
         }
     }
 }

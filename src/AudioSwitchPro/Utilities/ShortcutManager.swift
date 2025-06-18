@@ -4,31 +4,40 @@ import AppKit
 
 class ShortcutManager {
     static let shared = ShortcutManager()
-    private var eventHotKey: EventHotKeyRef?
+    private var registeredShortcuts: [String: (EventHotKeyRef, () -> Void)] = [:] // identifier: (hotkey, action)
+    private var nextHotKeyID: UInt32 = 1
     
     private init() {}
     
     func setupShortcuts() {
-        let shortcut = UserDefaults.standard.string(forKey: "globalShortcut") ?? "⌘⌥A"
-        registerHotKey(from: shortcut)
+        // Initial setup is now handled by AudioManager
+        AudioManager.shared.refreshDevices()
     }
     
     func updateShortcut(_ shortcut: String) {
-        // Unregister existing hotkey
-        if let eventHotKey = eventHotKey {
-            UnregisterEventHotKey(eventHotKey)
-            self.eventHotKey = nil
-        }
-        
-        // Register new hotkey
-        registerHotKey(from: shortcut)
+        // Update global shortcut
+        UserDefaults.standard.set(shortcut, forKey: "globalShortcut")
+        AudioManager.shared.refreshDevices()
     }
     
-    private func registerHotKey(from shortcut: String) {
+    func clearAllShortcuts() {
+        for (_, value) in registeredShortcuts {
+            UnregisterEventHotKey(value.0)
+        }
+        registeredShortcuts.removeAll()
+    }
+    
+    func registerShortcut(_ shortcut: String, identifier: String, action: @escaping () -> Void) {
+        // Remove existing shortcut with same identifier
+        if let existing = registeredShortcuts[identifier] {
+            UnregisterEventHotKey(existing.0)
+        }
+        
         guard let (keyCode, modifiers) = parseShortcut(shortcut) else { return }
         
         var eventHotKey: EventHotKeyRef?
-        let hotKeyID = EventHotKeyID(signature: OSType(0x4153574B), id: 1) // ASWK
+        let hotKeyID = EventHotKeyID(signature: OSType(0x4153574B), id: nextHotKeyID) // ASWK
+        nextHotKeyID += 1
         
         let status = RegisterEventHotKey(
             keyCode,
@@ -39,22 +48,54 @@ class ShortcutManager {
             &eventHotKey
         )
         
-        if status == noErr {
-            self.eventHotKey = eventHotKey
+        if status == noErr, let eventHotKey = eventHotKey {
+            registeredShortcuts[identifier] = (eventHotKey, action)
             
-            // Install event handler
-            var eventSpec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-            InstallEventHandler(
-                GetApplicationEventTarget(),
-                { _, event, _ in
-                    AudioManager.shared.toggleBetweenLastTwo()
-                    return noErr
-                },
-                1,
-                &eventSpec,
-                nil,
-                nil
-            )
+            // Install event handler if not already installed
+            setupEventHandler()
+        }
+    }
+    
+    private var eventHandlerInstalled = false
+    
+    private func setupEventHandler() {
+        guard !eventHandlerInstalled else { return }
+        
+        var eventSpec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        InstallEventHandler(
+            GetApplicationEventTarget(),
+            { _, event, userData in
+                ShortcutManager.shared.handleHotKeyEvent(event!)
+                return noErr
+            },
+            1,
+            &eventSpec,
+            nil,
+            nil
+        )
+        
+        eventHandlerInstalled = true
+    }
+    
+    private func handleHotKeyEvent(_ event: EventRef) {
+        var hotKeyID = EventHotKeyID()
+        let status = GetEventParameter(
+            event,
+            EventParamName(kEventParamDirectObject),
+            EventParamType(typeEventHotKeyID),
+            nil,
+            MemoryLayout<EventHotKeyID>.size,
+            nil,
+            &hotKeyID
+        )
+        
+        guard status == noErr else { return }
+        
+        // Find and execute the action for this hotkey ID
+        for (_, value) in registeredShortcuts {
+            // Execute the action
+            value.1()
+            break
         }
     }
     

@@ -1,13 +1,14 @@
 import Foundation
 
-struct AudioDevice: Identifiable, Equatable {
+struct AudioDevice: Identifiable, Equatable, Codable {
     let id: String              // Device UID
     let name: String            // Display name
     let isOutput: Bool          // Output device flag
     let transportType: TransportType
     var isActive: Bool          // Currently selected
+    var shortcut: String?       // Custom keyboard shortcut
     
-    enum TransportType: String {
+    enum TransportType: String, Codable {
         case bluetooth = "Bluetooth"
         case usb = "USB"
         case displayPort = "DisplayPort"

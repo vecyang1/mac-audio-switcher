@@ -9,10 +9,12 @@ class AudioManager: ObservableObject {
     
     private var lastTwoDeviceIDs: [String] = []
     private let propertyListenerQueue = DispatchQueue(label: "com.audioswitch.propertylistener")
+    private var deviceShortcuts: [String: String] = [:] // DeviceID: Shortcut
     
     static let shared = AudioManager()
     
     init() {
+        loadDeviceShortcuts()
         refreshDevices()
         setupPropertyListeners()
     }
@@ -62,6 +64,11 @@ class AudioManager: ObservableObject {
         }
         
         DispatchQueue.main.async {
+            // Apply saved shortcuts to devices
+            for i in 0..<devices.count {
+                devices[i].shortcut = self.deviceShortcuts[devices[i].id]
+            }
+            
             self.devices = devices.sorted { $0.name < $1.name }
             self.activeDeviceID = defaultOutputID
             
@@ -74,6 +81,9 @@ class AudioManager: ObservableObject {
                     }
                 }
             }
+            
+            // Update shortcuts in ShortcutManager
+            self.updateShortcutRegistrations()
         }
     }
     
@@ -342,5 +352,65 @@ class AudioManager: ObservableObject {
             },
             Unmanaged.passUnretained(self).toOpaque()
         )
+    }
+    
+    // MARK: - Device Shortcut Management
+    
+    func setShortcut(_ shortcut: String, for deviceID: String) {
+        deviceShortcuts[deviceID] = shortcut
+        saveDeviceShortcuts()
+        
+        // Update the device in the array
+        if let index = devices.firstIndex(where: { $0.id == deviceID }) {
+            devices[index].shortcut = shortcut
+        }
+        
+        updateShortcutRegistrations()
+    }
+    
+    func clearShortcut(for deviceID: String) {
+        deviceShortcuts.removeValue(forKey: deviceID)
+        saveDeviceShortcuts()
+        
+        // Update the device in the array
+        if let index = devices.firstIndex(where: { $0.id == deviceID }) {
+            devices[index].shortcut = nil
+        }
+        
+        updateShortcutRegistrations()
+    }
+    
+    private func loadDeviceShortcuts() {
+        if let data = UserDefaults.standard.data(forKey: "deviceShortcuts"),
+           let shortcuts = try? JSONDecoder().decode([String: String].self, from: data) {
+            deviceShortcuts = shortcuts
+        }
+    }
+    
+    private func saveDeviceShortcuts() {
+        if let data = try? JSONEncoder().encode(deviceShortcuts) {
+            UserDefaults.standard.set(data, forKey: "deviceShortcuts")
+        }
+    }
+    
+    private func updateShortcutRegistrations() {
+        // Clear all existing shortcuts
+        ShortcutManager.shared.clearAllShortcuts()
+        
+        // Register global toggle shortcut
+        if let globalShortcut = UserDefaults.standard.globalShortcut {
+            ShortcutManager.shared.registerShortcut(globalShortcut, identifier: "global.toggle") {
+                self.toggleBetweenLastTwo()
+            }
+        }
+        
+        // Register device-specific shortcuts
+        for device in devices {
+            if let shortcut = device.shortcut {
+                ShortcutManager.shared.registerShortcut(shortcut, identifier: "device.\(device.id)") {
+                    self.switchToDevice(device.id)
+                }
+            }
+        }
     }
 }

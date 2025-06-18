@@ -44,6 +44,16 @@ struct DeviceRowView: View {
             
             Spacer()
             
+            // Device Shortcut
+            if let shortcut = device.shortcut {
+                Text(shortcut)
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.secondary.opacity(0.15))
+                    .cornerRadius(4)
+            }
+            
             // Active Indicator
             if device.isActive {
                 Image(systemName: "speaker.wave.3.fill")
