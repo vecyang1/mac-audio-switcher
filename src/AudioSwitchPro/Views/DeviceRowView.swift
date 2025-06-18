@@ -3,6 +3,12 @@ import SwiftUI
 struct DeviceRowView: View {
     let device: AudioDevice
     let isHovered: Bool
+    let onSwitchDevice: () -> Void
+    let onSetShortcut: (String) -> Void
+    let onClearShortcut: () -> Void
+    
+    @State private var isRecordingShortcut = false
+    @State private var eventMonitor: Any?
     
     private var backgroundColor: Color {
         if device.isActive {
@@ -44,14 +50,40 @@ struct DeviceRowView: View {
             
             Spacer()
             
-            // Device Shortcut
-            if let shortcut = device.shortcut {
-                Text(shortcut)
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.secondary.opacity(0.15))
-                    .cornerRadius(4)
+            // Shortcut Section
+            HStack(spacing: 8) {
+                if let shortcut = device.shortcut {
+                    // Display existing shortcut
+                    HStack(spacing: 4) {
+                        Text(shortcut)
+                            .font(.system(.caption, design: .monospaced))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.secondary.opacity(0.15))
+                            .cornerRadius(4)
+                        
+                        Button(action: onClearShortcut) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Clear shortcut")
+                    }
+                } else {
+                    // Set shortcut button
+                    Button(action: startRecordingShortcut) {
+                        Text(isRecordingShortcut ? "Press keys..." : "Set Shortcut")
+                            .font(.caption)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(isRecordingShortcut ? Color.accentColor : Color.secondary.opacity(0.15))
+                            .foregroundColor(isRecordingShortcut ? .white : .primary)
+                            .cornerRadius(4)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Click to assign a keyboard shortcut")
+                }
             }
             
             // Active Indicator
@@ -72,6 +104,85 @@ struct DeviceRowView: View {
         )
         .animation(.easeInOut(duration: 0.2), value: device.isActive)
         .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .contentShape(Rectangle()) // Make entire row clickable
+        .onTapGesture {
+            if !isRecordingShortcut {
+                onSwitchDevice()
+            }
+        }
+    }
+    
+    private func startRecordingShortcut() {
+        isRecordingShortcut = true
+        
+        // Remove any existing monitor
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        
+        // Set up event monitor
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+            if self.isRecordingShortcut {
+                self.handleKeyEvent(event)
+                return nil // Consume the event
+            }
+            return event
+        }
+        
+        // Auto-cancel after 10 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+            if self.isRecordingShortcut {
+                self.stopRecording()
+            }
+        }
+    }
+    
+    private func handleKeyEvent(_ event: NSEvent) {
+        // Only handle keyDown events
+        guard event.type == .keyDown else { return }
+        
+        // ESC to cancel
+        if event.keyCode == 53 { // ESC key
+            stopRecording()
+            return
+        }
+        
+        var keys: [String] = []
+        
+        // Check modifiers
+        if event.modifierFlags.contains(.command) {
+            keys.append("⌘")
+        }
+        if event.modifierFlags.contains(.option) {
+            keys.append("⌥")
+        }
+        if event.modifierFlags.contains(.control) {
+            keys.append("⌃")
+        }
+        if event.modifierFlags.contains(.shift) {
+            keys.append("⇧")
+        }
+        
+        // Add the main key
+        if let characters = event.charactersIgnoringModifiers?.uppercased() {
+            keys.append(characters)
+        }
+        
+        // Require at least one modifier key
+        if keys.count >= 2 {
+            let shortcut = keys.joined()
+            onSetShortcut(shortcut)
+            stopRecording()
+        }
+    }
+    
+    private func stopRecording() {
+        isRecordingShortcut = false
+        
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+            eventMonitor = nil
+        }
     }
 }
 
@@ -83,9 +194,13 @@ struct DeviceRowView: View {
                 name: "MacBook Pro Speakers",
                 isOutput: true,
                 transportType: .builtIn,
-                isActive: true
+                isActive: true,
+                shortcut: "⌘⌥1"
             ),
-            isHovered: false
+            isHovered: false,
+            onSwitchDevice: {},
+            onSetShortcut: { _ in },
+            onClearShortcut: {}
         )
         
         DeviceRowView(
@@ -94,11 +209,15 @@ struct DeviceRowView: View {
                 name: "AirPods Pro",
                 isOutput: true,
                 transportType: .bluetooth,
-                isActive: false
+                isActive: false,
+                shortcut: nil
             ),
-            isHovered: true
+            isHovered: true,
+            onSwitchDevice: {},
+            onSetShortcut: { _ in },
+            onClearShortcut: {}
         )
     }
     .padding()
-    .frame(width: 400)
+    .frame(width: 500)
 }

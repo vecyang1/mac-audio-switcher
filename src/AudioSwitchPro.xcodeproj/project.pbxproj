@@ -15,7 +15,6 @@
 		1A00000C1234567890ABCDEF /* DeviceRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00000B1234567890ABCDEF /* DeviceRowView.swift */; };
 		1A00000E1234567890ABCDEF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00000D1234567890ABCDEF /* SettingsView.swift */; };
 		1A0000101234567890ABCDEF /* ShortcutManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00000F1234567890ABCDEF /* ShortcutManager.swift */; };
-		1A0000121234567890ABCDEF /* DeviceShortcutsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000111234567890ABCDEF /* DeviceShortcutsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,7 +27,6 @@
 		1A00000B1234567890ABCDEF /* DeviceRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceRowView.swift; sourceTree = "<group>"; };
 		1A00000D1234567890ABCDEF /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		1A00000F1234567890ABCDEF /* ShortcutManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutManager.swift; sourceTree = "<group>"; };
-		1A0000111234567890ABCDEF /* DeviceShortcutsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceShortcutsView.swift; sourceTree = "<group>"; };
 		1AFFFFF01234567890ABCDEF /* AudioSwitchPro.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AudioSwitchPro.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1AFFFFF11234567890ABCDEF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -97,7 +95,6 @@
 				1A0000021234567890ABCDEF /* ContentView.swift */,
 				1A00000B1234567890ABCDEF /* DeviceRowView.swift */,
 				1A00000D1234567890ABCDEF /* SettingsView.swift */,
-				1A0000111234567890ABCDEF /* DeviceShortcutsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -194,7 +191,6 @@
 				1A00000C1234567890ABCDEF /* DeviceRowView.swift in Sources */,
 				1A00000E1234567890ABCDEF /* SettingsView.swift in Sources */,
 				1A0000101234567890ABCDEF /* ShortcutManager.swift in Sources */,
-				1A0000121234567890ABCDEF /* DeviceShortcutsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

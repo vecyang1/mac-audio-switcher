@@ -123,7 +123,8 @@ class AudioManager: ObservableObject {
             name: name,
             isOutput: true,
             transportType: transportType,
-            isActive: uid == defaultID
+            isActive: uid == defaultID,
+            shortcut: nil
         )
     }
     

@@ -3,7 +3,6 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var audioManager = AudioManager.shared
     @State private var showSettings = false
-    @State private var showDeviceShortcuts = false
     @State private var hoveredDeviceID: String?
     
     var body: some View {
@@ -20,13 +19,19 @@ struct ContentView: View {
                     ForEach(audioManager.devices) { device in
                         DeviceRowView(
                             device: device,
-                            isHovered: hoveredDeviceID == device.id
+                            isHovered: hoveredDeviceID == device.id,
+                            onSwitchDevice: {
+                                audioManager.switchToDevice(device.id)
+                            },
+                            onSetShortcut: { shortcut in
+                                audioManager.setShortcut(shortcut, for: device.id)
+                            },
+                            onClearShortcut: {
+                                audioManager.clearShortcut(for: device.id)
+                            }
                         )
                         .onHover { isHovered in
                             hoveredDeviceID = isHovered ? device.id : nil
-                        }
-                        .onTapGesture {
-                            audioManager.switchToDevice(device.id)
                         }
                     }
                 }
@@ -36,15 +41,12 @@ struct ContentView: View {
             Divider()
             
             // Footer
-            FooterView(showDeviceShortcuts: $showDeviceShortcuts)
+            FooterView()
                 .padding()
         }
         .background(Color(NSColor.windowBackgroundColor))
         .sheet(isPresented: $showSettings) {
             SettingsView()
-        }
-        .sheet(isPresented: $showDeviceShortcuts) {
-            DeviceShortcutsView(audioManager: audioManager)
         }
     }
 }
@@ -77,12 +79,11 @@ struct HeaderView: View {
 
 struct FooterView: View {
     @AppStorage("globalShortcut") private var shortcut = "⌘⌥A"
-    @Binding var showDeviceShortcuts: Bool
     
     var body: some View {
         HStack {
             HStack(spacing: 4) {
-                Label("Toggle", systemImage: "keyboard")
+                Label("Global Toggle", systemImage: "keyboard")
                 Text(shortcut)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -94,11 +95,9 @@ struct FooterView: View {
             
             Spacer()
             
-            Button(action: { showDeviceShortcuts = true }) {
-                Label("Device Shortcuts", systemImage: "keyboard.badge.ellipsis")
-                    .font(.caption)
-            }
-            .buttonStyle(.plain)
+            Text("Click 'Set Shortcut' next to any device")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 }
