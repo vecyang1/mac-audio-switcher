@@ -3,12 +3,14 @@ import SwiftUI
 struct DeviceRowView: View {
     let device: AudioDevice
     let isHovered: Bool
+    var showInputLevel: Bool = false
     let onSwitchDevice: () -> Void
     let onSetShortcut: (String) -> Void
     let onClearShortcut: () -> Void
     
     @State private var isRecordingShortcut = false
     @State private var eventMonitor: Any?
+    @State private var inputLevel: Float = 0.0
     
     private var backgroundColor: Color {
         if device.isActive {
@@ -24,7 +26,7 @@ struct DeviceRowView: View {
         HStack(spacing: 16) {
             // Active Indicator (moved to left)
             if device.isActive {
-                Image(systemName: "speaker.wave.3.fill")
+                Image(systemName: device.isOutput ? "speaker.wave.3.fill" : "mic.fill")
                     .font(.body)
                     .foregroundColor(.accentColor)
                     .frame(width: 20)
@@ -67,7 +69,21 @@ struct DeviceRowView: View {
             
             Spacer()
             
-            // Shortcut Section
+            // Input Level Indicator (for input devices)
+            if showInputLevel && !device.isOutput {
+                HStack(spacing: 4) {
+                    // Microphone icon to indicate what this is
+                    Image(systemName: "mic.fill")
+                        .font(.caption2)
+                        .foregroundColor(device.isActive ? .accentColor : .secondary)
+                    
+                    InputLevelIndicator(level: device.isActive ? 0.3 : 0.0) // Placeholder level
+                        .frame(width: 50, height: 8)
+                        .help("Microphone input level")
+                }
+            }
+            
+            // Shortcut Section (always rightmost)
             HStack(spacing: 8) {
                 if let shortcut = device.shortcut {
                     // Display existing shortcut
@@ -115,7 +131,8 @@ struct DeviceRowView: View {
         .animation(.easeInOut(duration: 0.15), value: isHovered)
         .contentShape(Rectangle()) // Make entire row clickable
         .onTapGesture {
-            if !isRecordingShortcut && device.isOnline {
+            if !isRecordingShortcut {
+                // Allow clicking on all devices, including Bluetooth devices that might be available for connection
                 onSwitchDevice()
             }
         }
@@ -322,6 +339,48 @@ struct DeviceContextMenu: View {
         if let monitor = eventMonitor {
             NSEvent.removeMonitor(monitor)
             eventMonitor = nil
+        }
+    }
+}
+
+struct InputLevelIndicator: View {
+    let level: Float // 0.0 to 1.0
+    
+    private var levelColor: Color {
+        switch level {
+        case 0.8...1.0:
+            return .red // Too loud
+        case 0.6..<0.8:
+            return .yellow // Good level
+        case 0.2..<0.6:
+            return .green // Perfect
+        default:
+            return .gray // Too quiet
+        }
+    }
+    
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                // Background with segments
+                HStack(spacing: 1) {
+                    ForEach(0..<10) { index in
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.secondary.opacity(0.2))
+                            .frame(width: (geometry.size.width - 9) / 10)
+                    }
+                }
+                
+                // Active level bars
+                HStack(spacing: 1) {
+                    ForEach(0..<10) { index in
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Float(index) / 10.0 < level ? levelColor : Color.clear)
+                            .frame(width: (geometry.size.width - 9) / 10)
+                    }
+                }
+                .animation(.linear(duration: 0.05), value: level)
+            }
         }
     }
 }

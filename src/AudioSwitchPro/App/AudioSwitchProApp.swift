@@ -114,6 +114,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Initialize shortcut manager
         ShortcutManager.shared.setupShortcuts()
+        
+        // Always show the main window on first launch
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.showMainWindow()
+        }
+    }
+    
+    private func showMainWindow() {
+        // Find and show the main window
+        if let window = NSApp.windows.first(where: { $0.title.isEmpty || $0.title == "AudioSwitch Pro" }) {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -124,20 +137,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         if let button = statusItem?.button {
-            // Create a custom menu bar icon with better visibility
-            let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+            // Show both speaker and mic icons
+            let attributedString = NSMutableAttributedString()
             
-            if let image = NSImage(systemSymbolName: "speaker.wave.2.circle.fill", accessibilityDescription: "AudioSwitch Pro")?.withSymbolConfiguration(config) {
-                button.image = image
-                button.image?.size = NSSize(width: 18, height: 18)
-                button.image?.isTemplate = true
-            } else if let image = NSImage(named: "MenuBarIcon") {
-                // Fallback to asset icon
-                button.image = image
-                button.image?.size = NSSize(width: 18, height: 18)
-                button.image?.isTemplate = true
-            }
+            // Speaker icon
+            let speakerAttachment = NSTextAttachment()
+            speakerAttachment.image = NSImage(systemSymbolName: "speaker.wave.2", accessibilityDescription: "Output")
+            speakerAttachment.image?.size = NSSize(width: 16, height: 16)
+            speakerAttachment.image?.isTemplate = true
+            attributedString.append(NSAttributedString(attachment: speakerAttachment))
             
+            // Mic icon
+            let micAttachment = NSTextAttachment()
+            micAttachment.image = NSImage(systemSymbolName: "mic", accessibilityDescription: "Input")
+            micAttachment.image?.size = NSSize(width: 16, height: 16)
+            micAttachment.image?.isTemplate = true
+            attributedString.append(NSAttributedString(attachment: micAttachment))
+            
+            button.attributedTitle = attributedString
             button.action = #selector(menuBarIconClicked)
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -150,16 +167,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupMenuBarMenu() {
         let menu = NSMenu()
         
-        // Add current device header
-        let currentDevice = AudioManager.shared.outputDevices.first { $0.isActive }
-        if let device = currentDevice {
-            let headerItem = NSMenuItem(title: "Current: \(device.name)", action: nil, keyEquivalent: "")
+        // Add current output device header
+        let currentOutputDevice = AudioManager.shared.outputDevices.first { $0.isActive }
+        if let device = currentOutputDevice {
+            let headerItem = NSMenuItem(title: "Output: \(device.name)", action: nil, keyEquivalent: "")
             headerItem.isEnabled = false
             let headerFont = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
-            headerItem.attributedTitle = NSAttributedString(string: "Current: \(device.name)", 
+            headerItem.attributedTitle = NSAttributedString(string: "Output: \(device.name)", 
                                                           attributes: [.font: headerFont])
             menu.addItem(headerItem)
-            menu.addItem(NSMenuItem.separator())
         }
         
         // Add audio output devices
@@ -167,15 +183,62 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if !outputDevices.isEmpty {
             for device in outputDevices {
                 let title = device.isOnline ? device.name : "\(device.name) (Offline)"
-                let item = NSMenuItem(title: title, action: device.isOnline ? #selector(switchToDevice(_:)) : nil, keyEquivalent: "")
+                let item = NSMenuItem(title: title, action: #selector(switchToDevice(_:)), keyEquivalent: "")
                 item.target = self
                 item.representedObject = device
-                item.isEnabled = device.isOnline
+                // Enable all devices for clicking, including Bluetooth devices that might be available for connection
+                item.isEnabled = true
                 if device.isActive {
                     item.state = .on
                 }
+                // Add shortcut if available
+                if let shortcut = device.shortcut {
+                    item.keyEquivalent = ""
+                    item.keyEquivalentModifierMask = []
+                    item.title = "\(title) \(shortcut)"
+                }
                 // Add transport type icon
                 if let image = NSImage(systemSymbolName: device.transportType.icon, accessibilityDescription: nil) {
+                    image.size = NSSize(width: 16, height: 16)
+                    item.image = image
+                }
+                menu.addItem(item)
+            }
+            
+            menu.addItem(NSMenuItem.separator())
+        }
+        
+        // Add current input device header
+        let currentInputDevice = AudioManager.shared.inputDevices.first { $0.isActive }
+        if let device = currentInputDevice {
+            let headerItem = NSMenuItem(title: "Input: \(device.name)", action: nil, keyEquivalent: "")
+            headerItem.isEnabled = false
+            let headerFont = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
+            headerItem.attributedTitle = NSAttributedString(string: "Input: \(device.name)", 
+                                                          attributes: [.font: headerFont])
+            menu.addItem(headerItem)
+        }
+        
+        // Add audio input devices
+        let inputDevices = AudioManager.shared.inputDevices
+        if !inputDevices.isEmpty {
+            for device in inputDevices {
+                let title = device.isOnline ? device.name : "\(device.name) (Offline)"
+                let item = NSMenuItem(title: title, action: #selector(switchToDevice(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = device
+                item.isEnabled = true
+                if device.isActive {
+                    item.state = .on
+                }
+                // Add shortcut if available
+                if let shortcut = device.shortcut {
+                    item.keyEquivalent = ""
+                    item.keyEquivalentModifierMask = []
+                    item.title = "\(title) \(shortcut)"
+                }
+                // Add mic icon
+                if let image = NSImage(systemSymbolName: "mic", accessibilityDescription: nil) {
                     image.size = NSSize(width: 16, height: 16)
                     item.image = image
                 }
@@ -225,10 +288,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc private func showMainPanel() {
-        if let window = NSApp.windows.first {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-        }
+        showMainWindow()
     }
     
     @objc private func showSettings() {

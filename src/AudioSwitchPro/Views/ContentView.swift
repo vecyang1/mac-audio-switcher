@@ -25,27 +25,74 @@ struct ContentView: View {
             
             // Device List
             ScrollView {
-                VStack(spacing: 12) {
-                    ForEach(audioManager.devices) { device in
-                        DeviceRowView(
-                            device: device,
-                            isHovered: hoveredDeviceID == device.id,
-                            onSwitchDevice: {
-                                audioManager.switchToDevice(device.id)
-                            },
-                            onSetShortcut: { shortcut in
-                                audioManager.setShortcut(shortcut, for: device.id)
-                            },
-                            onClearShortcut: {
-                                audioManager.clearShortcut(for: device.id)
+                VStack(spacing: 0) {
+                    // Output Devices Section
+                    SectionHeaderView(title: "OUTPUT DEVICES")
+                    
+                    VStack(spacing: 8) {
+                        ForEach(audioManager.outputDevices) { device in
+                            DeviceRowView(
+                                device: device,
+                                isHovered: hoveredDeviceID == device.id,
+                                onSwitchDevice: {
+                                    audioManager.setDevice(device)
+                                    
+                                    // Keep the window visible and focused after switching
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        if let window = NSApp.windows.first {
+                                            window.makeKeyAndOrderFront(nil)
+                                        }
+                                    }
+                                },
+                                onSetShortcut: { shortcut in
+                                    audioManager.setShortcut(shortcut, for: device.id)
+                                },
+                                onClearShortcut: {
+                                    audioManager.clearShortcut(for: device.id)
+                                }
+                            )
+                            .onHover { isHovered in
+                                hoveredDeviceID = isHovered ? device.id : nil
                             }
-                        )
-                        .onHover { isHovered in
-                            hoveredDeviceID = isHovered ? device.id : nil
                         }
                     }
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+                    
+                    // Input Devices Section
+                    SectionHeaderView(title: "INPUT DEVICES")
+                    
+                    VStack(spacing: 8) {
+                        ForEach(audioManager.inputDevices) { device in
+                            DeviceRowView(
+                                device: device,
+                                isHovered: hoveredDeviceID == device.id,
+                                showInputLevel: true,
+                                onSwitchDevice: {
+                                    audioManager.setDevice(device)
+                                    
+                                    // Keep the window visible and focused after switching
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        if let window = NSApp.windows.first {
+                                            window.makeKeyAndOrderFront(nil)
+                                        }
+                                    }
+                                },
+                                onSetShortcut: { shortcut in
+                                    audioManager.setShortcut(shortcut, for: device.id)
+                                },
+                                onClearShortcut: {
+                                    audioManager.clearShortcut(for: device.id)
+                                }
+                            )
+                            .onHover { isHovered in
+                                hoveredDeviceID = isHovered ? device.id : nil
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom)
                 }
-                .padding()
             }
             
             Divider()
@@ -128,9 +175,11 @@ struct HeaderView: View {
             return event
         }
         
-        // Auto-cancel after 10 seconds
+        // Auto-cancel after 10 seconds - clear shortcut on timeout
         DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
             if self.isRecordingShortcut {
+                self.globalShortcut = ""
+                AudioManager.shared.refreshShortcuts()
                 self.stopRecording()
             }
         }
@@ -140,8 +189,10 @@ struct HeaderView: View {
         // Only handle keyDown events
         guard event.type == .keyDown else { return }
         
-        // ESC to cancel
+        // ESC to cancel - clear the shortcut
         if event.keyCode == 53 { // ESC key
+            globalShortcut = ""
+            AudioManager.shared.refreshShortcuts()
             stopRecording()
             return
         }
@@ -183,6 +234,23 @@ struct HeaderView: View {
             NSEvent.removeMonitor(monitor)
             eventMonitor = nil
         }
+    }
+}
+
+struct SectionHeaderView: View {
+    let title: String
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.secondary)
+            Spacer()
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .background(Color(NSColor.separatorColor).opacity(0.1))
     }
 }
 

@@ -11,6 +11,19 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 echo "🚀 AudioSwitch Pro - Build & Run"
 echo "================================"
 
+# Step 0: Increment version
+echo ""
+echo "📈 Step 0: Incrementing build version..."
+PLIST_PATH="$PROJECT_DIR/src/AudioSwitchPro/Info.plist"
+
+# Get current build number
+CURRENT_BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST_PATH")
+NEW_BUILD=$((CURRENT_BUILD + 1))
+
+# Update build number
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEW_BUILD" "$PLIST_PATH"
+echo "📋 Version updated: Build $CURRENT_BUILD → $NEW_BUILD"
+
 # Step 1: Build
 echo ""
 echo "📦 Step 1: Building app..."

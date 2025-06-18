@@ -124,7 +124,7 @@ struct SettingsView: View {
                                 Text("Version")
                                     .foregroundColor(.secondary)
                                 Spacer()
-                                Text("1.0")
+                                Text(getAppVersion())
                             }
                             
                             Divider()
@@ -258,7 +258,21 @@ struct SettingsView: View {
                 showMenuBarIcon = true
                 updateMenuBarIcon(true)
             }
+            
+            // Get current main window state before switching activation policy
+            let mainWindow = NSApp.windows.first(where: { $0.title.isEmpty || $0.title == "AudioSwitch Pro" })
+            let wasVisible = mainWindow?.isVisible ?? false
+            
             NSApp.setActivationPolicy(.accessory)
+            
+            // If the main window was visible, keep it visible after switching to accessory mode
+            if wasVisible, let window = mainWindow {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    window.makeKeyAndOrderFront(nil)
+                    // For accessory apps, we need to explicitly activate to show windows
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+            }
         }
     }
     
@@ -267,6 +281,14 @@ struct SettingsView: View {
         NotificationCenter.default.post(name: Notification.Name("UpdateMenuBarIcon"), 
                                       object: nil, 
                                       userInfo: ["show": show])
+    }
+    
+    private func getAppVersion() -> String {
+        if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+           let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
+            return "\(version) (\(build))"
+        }
+        return "1.0"
     }
 }
 
