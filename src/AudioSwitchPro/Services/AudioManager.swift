@@ -357,12 +357,19 @@ class AudioManager: ObservableObject {
     // MARK: - Device Shortcut Management
     
     func setShortcut(_ shortcut: String, for deviceID: String) {
+        print("🎯 Setting shortcut '\(shortcut)' for device: \(deviceID)")
         deviceShortcuts[deviceID] = shortcut
         saveDeviceShortcuts()
         
         // Update the device in the array
         if let index = devices.firstIndex(where: { $0.id == deviceID }) {
             devices[index].shortcut = shortcut
+            print("✅ Updated device array with shortcut")
+        }
+        
+        // Force UI update
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
         }
         
         updateShortcutRegistrations()
@@ -393,13 +400,21 @@ class AudioManager: ObservableObject {
         }
     }
     
+    func refreshShortcuts() {
+        updateShortcutRegistrations()
+    }
+    
     private func updateShortcutRegistrations() {
+        print("🔄 Updating shortcut registrations...")
+        
         // Clear all existing shortcuts
         ShortcutManager.shared.clearAllShortcuts()
         
         // Register global toggle shortcut
         if let globalShortcut = UserDefaults.standard.globalShortcut {
+            print("📝 Registering global toggle shortcut: \(globalShortcut)")
             ShortcutManager.shared.registerShortcut(globalShortcut, identifier: "global.toggle") {
+                print("🔄 Global toggle shortcut triggered")
                 self.toggleBetweenLastTwo()
             }
         }
@@ -407,10 +422,14 @@ class AudioManager: ObservableObject {
         // Register device-specific shortcuts
         for device in devices {
             if let shortcut = device.shortcut {
+                print("📝 Registering device shortcut: \(shortcut) for \(device.name)")
                 ShortcutManager.shared.registerShortcut(shortcut, identifier: "device.\(device.id)") {
+                    print("🎵 Device shortcut triggered for: \(device.name)")
                     self.switchToDevice(device.id)
                 }
             }
         }
+        
+        print("✅ Shortcut registration complete")
     }
 }

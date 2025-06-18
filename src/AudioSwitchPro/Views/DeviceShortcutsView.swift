@@ -68,17 +68,27 @@ struct DeviceShortcutsView: View {
         isRecording = true
         recordedShortcut = ""
         
+        // Remove any existing event monitor
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        
         // Set up event monitor
-        NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
             if self.isRecording {
                 self.handleKeyEvent(event)
-                return nil
+                return nil // Consume the event
             }
             return event
         }
     }
     
+    @State private var eventMonitor: Any?
+    
     private func handleKeyEvent(_ event: NSEvent) {
+        // Only handle keyDown events for recording
+        guard event.type == .keyDown else { return }
+        
         var keys: [String] = []
         
         // Check modifiers
@@ -95,21 +105,44 @@ struct DeviceShortcutsView: View {
             keys.append("⇧")
         }
         
-        // Add the key if it's not just a modifier
-        if event.type == .keyDown {
-            if let characters = event.charactersIgnoringModifiers?.uppercased() {
-                keys.append(characters)
+        // Add the main key
+        if let characters = event.charactersIgnoringModifiers?.uppercased() {
+            keys.append(characters)
+        }
+        
+        // Require at least one modifier key
+        if keys.count >= 2 {
+            let shortcut = keys.joined()
+            
+            // Check for conflicts
+            let conflictDevice = audioManager.devices.first { device in
+                device.shortcut == shortcut && device.id != editingDeviceID
+            }
+            
+            if conflictDevice != nil {
+                // Show conflict warning
+                print("Shortcut \(shortcut) already assigned to \(conflictDevice?.name ?? "another device")")
+                // For now, still assign it - you might want to show an alert
             }
             
             // Save the shortcut
-            if !keys.isEmpty && keys.count > 1 { // Require at least one modifier
-                let shortcut = keys.joined()
-                if let deviceID = editingDeviceID {
-                    audioManager.setShortcut(shortcut, for: deviceID)
-                }
-                isRecording = false
-                editingDeviceID = nil
+            if let deviceID = editingDeviceID {
+                audioManager.setShortcut(shortcut, for: deviceID)
+                print("Assigned shortcut \(shortcut) to device \(deviceID)")
             }
+            
+            // Stop recording
+            stopRecording()
+        }
+    }
+    
+    private func stopRecording() {
+        isRecording = false
+        editingDeviceID = nil
+        
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+            eventMonitor = nil
         }
     }
 }

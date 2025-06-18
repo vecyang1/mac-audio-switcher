@@ -126,12 +126,19 @@ struct SettingsView: View {
         .background(Color(NSColor.windowBackgroundColor))
     }
     
+    @State private var settingsEventMonitor: Any?
+    
     private func startRecordingShortcut() {
         isRecordingShortcut = true
         recordedKeys = []
         
+        // Remove any existing monitor
+        if let monitor = settingsEventMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        
         // Set up event monitor
-        NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+        settingsEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
             if self.isRecordingShortcut {
                 self.handleKeyEvent(event)
                 return nil
@@ -141,6 +148,9 @@ struct SettingsView: View {
     }
     
     private func handleKeyEvent(_ event: NSEvent) {
+        // Only handle keyDown events
+        guard event.type == .keyDown else { return }
+        
         var keys: [String] = []
         
         // Check modifiers
@@ -157,21 +167,31 @@ struct SettingsView: View {
             keys.append("⇧")
         }
         
-        // Add the key if it's not just a modifier
-        if event.type == .keyDown {
-            if let characters = event.charactersIgnoringModifiers?.uppercased() {
-                keys.append(characters)
-            }
+        // Add the main key
+        if let characters = event.charactersIgnoringModifiers?.uppercased() {
+            keys.append(characters)
+        }
+        
+        // Require at least one modifier and one key
+        if keys.count >= 2 {
+            let shortcut = keys.joined()
+            globalShortcut = shortcut
             
-            // Save the shortcut
-            if !keys.isEmpty {
-                let shortcut = keys.joined()
-                globalShortcut = shortcut
-                isRecordingShortcut = false
-                
-                // Update the shortcut manager
-                ShortcutManager.shared.updateShortcut(shortcut)
-            }
+            // Stop recording
+            stopRecordingShortcut()
+            
+            // Update the shortcut manager
+            ShortcutManager.shared.updateShortcut(shortcut)
+            print("🎯 Updated global shortcut to: \(shortcut)")
+        }
+    }
+    
+    private func stopRecordingShortcut() {
+        isRecordingShortcut = false
+        
+        if let monitor = settingsEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            settingsEventMonitor = nil
         }
     }
     

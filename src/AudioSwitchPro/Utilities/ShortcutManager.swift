@@ -5,6 +5,7 @@ import AppKit
 class ShortcutManager {
     static let shared = ShortcutManager()
     private var registeredShortcuts: [String: (EventHotKeyRef, () -> Void)] = [:] // identifier: (hotkey, action)
+    private var hotKeyIDToAction: [UInt32: () -> Void] = [:] // hotKeyID: action
     private var nextHotKeyID: UInt32 = 1
     
     private init() {}
@@ -25,6 +26,7 @@ class ShortcutManager {
             UnregisterEventHotKey(value.0)
         }
         registeredShortcuts.removeAll()
+        hotKeyIDToAction.removeAll()
     }
     
     func registerShortcut(_ shortcut: String, identifier: String, action: @escaping () -> Void) {
@@ -50,9 +52,14 @@ class ShortcutManager {
         
         if status == noErr, let eventHotKey = eventHotKey {
             registeredShortcuts[identifier] = (eventHotKey, action)
+            hotKeyIDToAction[hotKeyID.id] = action
             
             // Install event handler if not already installed
             setupEventHandler()
+            
+            print("✅ Registered shortcut '\(shortcut)' for \(identifier) with ID \(hotKeyID.id)")
+        } else {
+            print("❌ Failed to register shortcut '\(shortcut)' for \(identifier). Status: \(status)")
         }
     }
     
@@ -89,13 +96,22 @@ class ShortcutManager {
             &hotKeyID
         )
         
-        guard status == noErr else { return }
+        guard status == noErr else { 
+            print("❌ Failed to get hotkey ID from event")
+            return 
+        }
         
-        // Find and execute the action for this hotkey ID
-        for (_, value) in registeredShortcuts {
-            // Execute the action
-            value.1()
-            break
+        print("🔥 Hotkey pressed with ID: \(hotKeyID.id)")
+        
+        // Find and execute the action for this specific hotkey ID
+        if let action = hotKeyIDToAction[hotKeyID.id] {
+            print("✅ Executing action for hotkey ID: \(hotKeyID.id)")
+            DispatchQueue.main.async {
+                action()
+            }
+        } else {
+            print("❌ No action found for hotkey ID: \(hotKeyID.id)")
+            print("Available hotkey IDs: \(Array(hotKeyIDToAction.keys))")
         }
     }
     
