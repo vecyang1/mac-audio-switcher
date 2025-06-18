@@ -80,17 +80,17 @@ struct DeviceRowView: View {
             
             Spacer()
             
-            // Input Level Indicator (for input devices)
-            if showInputLevel && !device.isOutput {
+            // Input Level Indicator (only for active input devices)
+            if showInputLevel && !device.isOutput && device.isActive {
                 HStack(spacing: 4) {
                     // Microphone icon to indicate what this is
                     Image(systemName: "mic.fill")
                         .font(.caption2)
-                        .foregroundColor(device.isActive ? .accentColor : .secondary)
+                        .foregroundColor(.accentColor)
                     
                     InputLevelIndicator(level: audioManager.getInputLevel(for: device.id))
                         .frame(width: 50, height: 8)
-                        .help("Microphone input level")
+                        .help("Current microphone input level")
                 }
             }
             

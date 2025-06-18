@@ -67,7 +67,7 @@ struct ContentView: View {
                             DeviceRowView(
                                 device: device,
                                 isHovered: hoveredDeviceID == device.id,
-                                showInputLevel: true,
+                                showInputLevel: device.isActive,
                                 onSwitchDevice: {
                                     audioManager.setDevice(device)
                                     
