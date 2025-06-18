@@ -60,7 +60,7 @@ struct HeaderView: View {
                 Text("AudioSwitch Pro")
                     .font(.title2)
                     .fontWeight(.semibold)
-                Text("Click any device to switch")
+                Text("Click to switch • Right-click for shortcuts")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -95,7 +95,7 @@ struct FooterView: View {
             
             Spacer()
             
-            Text("Click 'Set Shortcut' next to any device")
+            Text("Set shortcuts: Click button OR right-click device")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }

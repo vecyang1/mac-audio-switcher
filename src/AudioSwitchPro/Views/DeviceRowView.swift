@@ -110,6 +110,137 @@ struct DeviceRowView: View {
                 onSwitchDevice()
             }
         }
+        .contextMenu {
+            DeviceContextMenu(
+                device: device,
+                onSwitchDevice: onSwitchDevice,
+                onSetShortcut: onSetShortcut,
+                onClearShortcut: onClearShortcut,
+                onStartRecording: startRecordingShortcut
+            )
+        }
+    }
+    
+    private func startRecordingShortcut() {
+        isRecordingShortcut = true
+        
+        // Remove any existing monitor
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        
+        // Set up event monitor
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+            if self.isRecordingShortcut {
+                self.handleKeyEvent(event)
+                return nil // Consume the event
+            }
+            return event
+        }
+        
+        // Auto-cancel after 10 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+            if self.isRecordingShortcut {
+                self.stopRecording()
+            }
+        }
+    }
+    
+    private func handleKeyEvent(_ event: NSEvent) {
+        // Only handle keyDown events
+        guard event.type == .keyDown else { return }
+        
+        // ESC to cancel
+        if event.keyCode == 53 { // ESC key
+            stopRecording()
+            return
+        }
+        
+        var keys: [String] = []
+        
+        // Check modifiers
+        if event.modifierFlags.contains(.command) {
+            keys.append("⌘")
+        }
+        if event.modifierFlags.contains(.option) {
+            keys.append("⌥")
+        }
+        if event.modifierFlags.contains(.control) {
+            keys.append("⌃")
+        }
+        if event.modifierFlags.contains(.shift) {
+            keys.append("⇧")
+        }
+        
+        // Add the main key
+        if let characters = event.charactersIgnoringModifiers?.uppercased() {
+            keys.append(characters)
+        }
+        
+        // Require at least one modifier key
+        if keys.count >= 2 {
+            let shortcut = keys.joined()
+            onSetShortcut(shortcut)
+            stopRecording()
+        }
+    }
+    
+    private func stopRecording() {
+        isRecordingShortcut = false
+        
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+            eventMonitor = nil
+        }
+    }
+}
+
+struct DeviceContextMenu: View {
+    let device: AudioDevice
+    let onSwitchDevice: () -> Void
+    let onSetShortcut: (String) -> Void
+    let onClearShortcut: () -> Void
+    let onStartRecording: () -> Void
+    
+    @State private var isRecordingShortcut = false
+    @State private var eventMonitor: Any?
+    
+    var body: some View {
+        Group {
+            // Primary action
+            Button(action: onSwitchDevice) {
+                Label("Switch to \(device.name)", systemImage: "speaker.wave.2")
+            }
+            
+            Divider()
+            
+            // Shortcut management
+            if device.shortcut != nil {
+                Button(action: {
+                    startRecordingShortcut()
+                }) {
+                    Label("Change Shortcut", systemImage: "keyboard")
+                }
+                
+                Button(action: onClearShortcut) {
+                    Label("Remove Shortcut", systemImage: "trash")
+                }
+            } else {
+                Button(action: {
+                    startRecordingShortcut()
+                }) {
+                    Label("Assign Shortcut", systemImage: "keyboard")
+                }
+            }
+            
+            Divider()
+            
+            // Device info
+            Button(action: {}) {
+                Label("\(device.transportType.rawValue) Device", systemImage: "info.circle")
+            }
+            .disabled(true)
+        }
     }
     
     private func startRecordingShortcut() {
