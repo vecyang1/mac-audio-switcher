@@ -79,9 +79,9 @@ AudioSwitch Pro eliminates this friction by:
 
 ### 5. Real-Time Monitoring
 - **Live Device Status**: Connection indicators update instantly
-- **Battery Monitoring**: For Bluetooth devices
-- **Signal Strength**: Visual indicator for wireless devices
 - **Activity Indicators**: Show which device is currently active
+- **Connection Type**: Visual indicator for Bluetooth vs wired
+- **Future Enhancement**: Battery monitoring (post-MVP)
 
 ## Technical Architecture
 
@@ -147,8 +147,8 @@ AudioSwitchPro.app/
 - **Visual Elements**:
   - Device icon (speaker/headphones/custom)
   - Device name (editable)
-  - Connection status badge
-  - Battery indicator (if applicable)
+  - Connection status badge (Connected/Disconnected)
+  - Connection type icon (Bluetooth/USB/Internal)
   - Assigned shortcut display
   - Quick switch button
 
