@@ -2,14 +2,19 @@
 
 A modern macOS application for seamless audio device switching with customizable keyboard shortcuts.
 
-## Features
+## Features (MVP v1.0)
 
-- 🎵 **Instant Audio Switching** - Switch between audio devices with customizable keyboard shortcuts
-- 🖥️ **Beautiful Native UI** - Modern SwiftUI interface designed for macOS
-- ⌨️ **Global Shortcuts** - Control audio devices from anywhere on your Mac
-- 🔄 **Real-time Monitoring** - See device status, battery levels, and connection state
-- 🚀 **Auto-start Option** - Configure the app to launch at login
-- 🎯 **Smart Device Management** - Favorite devices, custom names, and smart sorting
+- 🎵 **Instant Audio Switching** - Switch between audio devices with one click
+- 🖥️ **Beautiful Native UI** - Clean, modern SwiftUI interface
+- ⌨️ **Global Shortcut** - Toggle between last two devices with a keyboard shortcut
+- 🚀 **Auto-start Option** - Launch at login (optional)
+- ✅ **Simple & Fast** - No complex settings, just works
+
+### Coming in v2.0
+- Multiple device shortcuts
+- Device favorites and custom names
+- Battery level monitoring
+- Advanced device management
 
 ## Requirements
 
@@ -39,16 +44,15 @@ open AudioSwitchPro.xcodeproj
 ```
 mac-audio-switcher/
 ├── docs/                    # Documentation
-│   └── PRODUCT_DESIGN.md   # Detailed product design document
-├── src/                    # Source code
-│   └── AudioSwitchPro/     # Main application
-│       ├── Models/         # Data models
-│       ├── Views/          # SwiftUI views
-│       ├── ViewModels/     # View models
-│       ├── Services/       # Core services
-│       └── Utilities/      # Helper utilities
-├── tests/                  # Unit and UI tests
-├── scripts/                # Build and utility scripts
+│   ├── PRODUCT_DESIGN.md   # Full product vision
+│   ├── MVP_REQUIREMENTS.md # MVP feature scope
+│   └── MVP_ARCHITECTURE.md # Simplified architecture
+├── AudioSwitchPro/         # Main application
+│   ├── App/               # App entry point
+│   ├── Models/            # Simple data model
+│   ├── Views/             # SwiftUI views (3 files)
+│   ├── Services/          # AudioManager only
+│   └── Utilities/         # ShortcutManager only
 └── README.md              # This file
 ```
 
@@ -85,14 +89,31 @@ Copyright © 2024 Vec Yang. All rights reserved.
 - [Report Issues](https://github.com/vecyang1/mac-audio-switcher/issues)
 - [Feature Requests](https://github.com/vecyang1/mac-audio-switcher/issues/new?labels=enhancement)
 
-## Roadmap
+## MVP Roadmap (4 weeks)
 
+### Week 1
 - [x] Core audio switching functionality
-- [x] SwiftUI interface design
-- [ ] Keyboard shortcut implementation
+- [x] Basic SwiftUI interface
+- [ ] Device list with one-click switching
+
+### Week 2
+- [ ] Single keyboard shortcut implementation
+- [ ] Simple settings window
+
+### Week 3
 - [ ] Auto-start functionality
-- [ ] Beta testing
+- [ ] UI polish and testing
+
+### Week 4
+- [ ] Final testing
+- [ ] GitHub release preparation
+- [ ] Direct download distribution
+
+### Future (v2.0+)
+- [ ] Multiple device shortcuts
+- [ ] Device favorites and renaming
 - [ ] Mac App Store release
+- [ ] Advanced features from full product design
 
 ---
 

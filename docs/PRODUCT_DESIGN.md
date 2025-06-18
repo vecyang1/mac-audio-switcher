@@ -1,5 +1,20 @@
 # AudioSwitch Pro - Product Design Document
 
+## MVP Scope
+
+**Important**: This document describes the full product vision. For the initial release, we are building a simplified MVP version focused on core functionality.
+
+### MVP Implementation (v1.0)
+- **Timeframe**: 4 weeks
+- **Scope**: Core features only - see [MVP_REQUIREMENTS.md](./MVP_REQUIREMENTS.md)
+- **Architecture**: Simplified design - see [MVP_ARCHITECTURE.md](./MVP_ARCHITECTURE.md)
+- **Goal**: Beautiful, functional app that "just works"
+
+### This Document
+This document contains the complete product vision and will guide future development beyond the MVP. Features marked as "Post-MVP" will be implemented in v2.0 and beyond.
+
+---
+
 ## Executive Summary
 
 AudioSwitch Pro is a native macOS application with a modern, user-friendly interface that provides seamless audio output device switching through customizable keyboard shortcuts. The app features a full UI window for configuration and management, with optional auto-start capability, real-time device monitoring, and instant switching between audio devices.
@@ -47,41 +62,41 @@ AudioSwitch Pro eliminates this friction by:
 ## Core Features
 
 ### 1. Full Application UI
-- **Main Window**: Modern SwiftUI interface with device list and controls
-- **Visual Device Cards**: Show device name, type, connection status, and battery level
-- **Quick Actions**: One-click switching from the main interface
-- **Dock Integration**: App icon in dock with right-click device menu
+- **Main Window**: Modern SwiftUI interface with device list and controls [MVP: Simple list view]
+- **Visual Device Cards**: Show device name, type, connection status, and battery level [MVP: Name and type only]
+- **Quick Actions**: One-click switching from the main interface [MVP: ✓]
+- **Dock Integration**: App icon in dock with right-click device menu [Post-MVP]
 
 ### 2. Keyboard Shortcut System
-- **Global Shortcuts**: Work system-wide when app is running
-- **Visual Shortcut Editor**: Drag-and-drop or click-to-record interface
-- **Conflict Detection**: Real-time checking against system shortcuts
+- **Global Shortcuts**: Work system-wide when app is running [MVP: ✓]
+- **Visual Shortcut Editor**: Drag-and-drop or click-to-record interface [MVP: Simple click-to-record]
+- **Conflict Detection**: Real-time checking against system shortcuts [Post-MVP]
 - **Multiple Shortcut Types**:
-  - Quick toggle between last two devices
-  - Direct shortcuts for specific devices
-  - Cycle through favorites
-  - Mute/unmute shortcuts
+  - Quick toggle between last two devices [MVP: ✓]
+  - Direct shortcuts for specific devices [Post-MVP]
+  - Cycle through favorites [Post-MVP]
+  - Mute/unmute shortcuts [Post-MVP]
 
 ### 3. Device Management
-- **Favorites System**: Star devices for quick access
-- **Custom Names**: Rename devices for clarity
-- **Device Icons**: Visual identification with custom icons
-- **Smart Sorting**: By usage frequency, connection status, or manual order
-- **Device Profiles**: Save preferred settings per device
+- **Favorites System**: Star devices for quick access [Post-MVP]
+- **Custom Names**: Rename devices for clarity [Post-MVP]
+- **Device Icons**: Visual identification with custom icons [MVP: Basic icons only]
+- **Smart Sorting**: By usage frequency, connection status, or manual order [Post-MVP]
+- **Device Profiles**: Save preferred settings per device [Post-MVP]
 
 ### 4. Auto-Start Configuration
-- **Optional Feature**: User chooses whether to enable
+- **Optional Feature**: User chooses whether to enable [MVP: ✓]
 - **Launch Preferences**:
-  - Start minimized to dock
-  - Start in background (no window)
-  - Start with main window open
-- **First Launch Experience**: Clear option during onboarding
+  - Start minimized to dock [Post-MVP]
+  - Start in background (no window) [Post-MVP]
+  - Start with main window open [MVP: Default behavior]
+- **First Launch Experience**: Clear option during onboarding [MVP: Simple checkbox in settings]
 
 ### 5. Real-Time Monitoring
-- **Live Device Status**: Connection indicators update instantly
-- **Activity Indicators**: Show which device is currently active
-- **Connection Type**: Visual indicator for Bluetooth vs wired
-- **Future Enhancement**: Battery monitoring (post-MVP)
+- **Live Device Status**: Connection indicators update instantly [MVP: ✓]
+- **Activity Indicators**: Show which device is currently active [MVP: ✓]
+- **Connection Type**: Visual indicator for Bluetooth vs wired [MVP: Text label only]
+- **Battery Monitoring**: Show battery levels for wireless devices [Post-MVP]
 
 ## Technical Architecture
 
@@ -236,29 +251,34 @@ AudioSwitchPro.app/
 
 ## Development Roadmap
 
-### Phase 1: Foundation (Weeks 1-3)
-- Core audio switching engine
-- Basic SwiftUI interface
-- Device detection and listing
-- Simple keyboard shortcuts
+### MVP Phase (4 Weeks) - v1.0
+- Week 1: Core audio switching + basic UI
+- Week 2: Single keyboard shortcut implementation
+- Week 3: Settings window + auto-start
+- Week 4: Polish + release preparation
 
-### Phase 2: Full UI (Weeks 4-6)
-- Complete device card interface
-- Shortcut editor implementation
-- Settings and preferences
-- Auto-start functionality
+### Post-MVP Phases - v2.0+
 
-### Phase 3: Polish (Weeks 7-9)
-- Animations and transitions
-- Comprehensive testing
-- Performance optimization
-- UI refinements
+#### Phase 1: Enhanced Shortcuts (Weeks 5-6)
+- Multiple device shortcuts
+- Shortcut conflict detection
+- Advanced shortcut types
 
-### Phase 4: Release Prep (Weeks 10-12)
-- Beta testing program
-- Documentation and help
-- Website and marketing materials
-- Distribution setup
+#### Phase 2: Device Management (Weeks 7-8)
+- Favorites system
+- Custom device names
+- Smart sorting options
+
+#### Phase 3: Advanced Features (Weeks 9-10)
+- Battery monitoring
+- Dock integration
+- Appearance options
+- Import/export settings
+
+#### Phase 4: Mac App Store (Weeks 11-12)
+- Sandboxing
+- App Store preparation
+- Marketing materials
 
 ## Success Metrics
 
