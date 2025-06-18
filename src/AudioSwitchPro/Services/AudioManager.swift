@@ -26,6 +26,8 @@ class AudioManager: ObservableObject {
     private let propertyListenerQueue = DispatchQueue(label: "com.audioswitch.propertylistener")
     private var deviceShortcuts: [String: String] = [:] // DeviceID: Shortcut
     private var savedDevices: [AudioDevice] = [] // Keep track of all seen devices
+    private var starredDeviceIDs: Set<String> = [] // DeviceIDs that are starred
+    private var hiddenDeviceIDs: Set<String> = [] // DeviceIDs that are hidden
     
     // Input monitoring properties
     private var audioEngine: AVAudioEngine?
@@ -39,6 +41,8 @@ class AudioManager: ObservableObject {
     init() {
         loadDeviceShortcuts()
         loadSavedDevices()
+        loadStarredDevices()
+        loadHiddenDevices()
         refreshDevices()
         setupPropertyListeners()
         
@@ -106,16 +110,22 @@ class AudioManager: ObservableObject {
         }
         
         DispatchQueue.main.async {
-            // Apply saved shortcuts to devices
+            // Apply saved shortcuts, starred, and hidden states to devices
             for i in 0..<devices.count {
                 devices[i].shortcut = self.deviceShortcuts[devices[i].id]
                 devices[i].isOnline = true
+                devices[i].isStarred = self.starredDeviceIDs.contains(devices[i].id)
+                devices[i].isHidden = self.hiddenDeviceIDs.contains(devices[i].id)
             }
             
             // Update saved devices with current online devices
             for device in devices {
                 if let index = self.savedDevices.firstIndex(where: { $0.id == device.id }) {
-                    self.savedDevices[index] = device
+                    // Preserve starred and hidden states when updating
+                    var updatedDevice = device
+                    updatedDevice.isStarred = self.savedDevices[index].isStarred
+                    updatedDevice.isHidden = self.savedDevices[index].isHidden
+                    self.savedDevices[index] = updatedDevice
                 } else {
                     self.savedDevices.append(device)
                 }
@@ -132,9 +142,15 @@ class AudioManager: ObservableObject {
                         self.savedDevices[i].isOnline = false
                     }
                     self.savedDevices[i].isActive = false
+                    // Preserve starred and hidden states
+                    self.savedDevices[i].isStarred = self.starredDeviceIDs.contains(self.savedDevices[i].id)
+                    self.savedDevices[i].isHidden = self.hiddenDeviceIDs.contains(self.savedDevices[i].id)
                 } else {
                     // Device found in current enumeration, mark as online
                     self.savedDevices[i].isOnline = true
+                    // Preserve starred and hidden states
+                    self.savedDevices[i].isStarred = self.starredDeviceIDs.contains(self.savedDevices[i].id)
+                    self.savedDevices[i].isHidden = self.hiddenDeviceIDs.contains(self.savedDevices[i].id)
                 }
             }
             
@@ -144,11 +160,21 @@ class AudioManager: ObservableObject {
                 if !currentDeviceIDs.contains(savedDevice.id) && 
                    (savedDevice.transportType == .bluetooth || savedDevice.transportType == .airPlay) {
                     // Use the updated savedDevice with current connectivity status
-                    finalDevices.append(savedDevice)
+                    // Make sure to apply starred and hidden states
+                    var deviceToAdd = savedDevice
+                    deviceToAdd.isStarred = self.starredDeviceIDs.contains(savedDevice.id)
+                    deviceToAdd.isHidden = self.hiddenDeviceIDs.contains(savedDevice.id)
+                    finalDevices.append(deviceToAdd)
                 }
             }
             
-            self.devices = finalDevices.sorted { $0.name < $1.name }
+            // Sort devices: starred first, then by name
+            self.devices = finalDevices.sorted { device1, device2 in
+                if device1.isStarred != device2.isStarred {
+                    return device1.isStarred
+                }
+                return device1.name < device2.name
+            }
             self.activeOutputDeviceID = defaultOutputID
             self.activeInputDeviceID = defaultInputID
             self.saveSavedDevices()
@@ -808,6 +834,87 @@ class AudioManager: ObservableObject {
     private func saveSavedDevices() {
         if let data = try? JSONEncoder().encode(savedDevices) {
             UserDefaults.standard.set(data, forKey: "savedAudioDevices")
+        }
+    }
+    
+    // MARK: - Star/Hide Device Management
+    
+    func toggleStar(for deviceID: String) {
+        if starredDeviceIDs.contains(deviceID) {
+            starredDeviceIDs.remove(deviceID)
+        } else {
+            starredDeviceIDs.insert(deviceID)
+        }
+        saveStarredDevices()
+        
+        // Update the device in the array
+        if let index = devices.firstIndex(where: { $0.id == deviceID }) {
+            devices[index].isStarred = starredDeviceIDs.contains(deviceID)
+        }
+        
+        // Refresh to reorder
+        refreshDevices()
+    }
+    
+    func hideDevice(_ deviceID: String) {
+        hiddenDeviceIDs.insert(deviceID)
+        saveHiddenDevices()
+        
+        // Update the device in the array
+        if let index = devices.firstIndex(where: { $0.id == deviceID }) {
+            devices[index].isHidden = true
+        }
+        
+        // Force UI update
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
+    }
+    
+    func unhideDevice(_ deviceID: String) {
+        hiddenDeviceIDs.remove(deviceID)
+        saveHiddenDevices()
+        
+        // Update the device in the array
+        if let index = devices.firstIndex(where: { $0.id == deviceID }) {
+            devices[index].isHidden = false
+        }
+        
+        // Update saved devices too
+        if let index = savedDevices.firstIndex(where: { $0.id == deviceID }) {
+            savedDevices[index].isHidden = false
+        }
+        
+        refreshDevices()
+    }
+    
+    func getHiddenDevices() -> [AudioDevice] {
+        return savedDevices.filter { $0.isHidden }
+    }
+    
+    private func loadStarredDevices() {
+        if let data = UserDefaults.standard.data(forKey: "starredDeviceIDs"),
+           let starred = try? JSONDecoder().decode(Set<String>.self, from: data) {
+            starredDeviceIDs = starred
+        }
+    }
+    
+    private func saveStarredDevices() {
+        if let data = try? JSONEncoder().encode(starredDeviceIDs) {
+            UserDefaults.standard.set(data, forKey: "starredDeviceIDs")
+        }
+    }
+    
+    private func loadHiddenDevices() {
+        if let data = UserDefaults.standard.data(forKey: "hiddenDeviceIDs"),
+           let hidden = try? JSONDecoder().decode(Set<String>.self, from: data) {
+            hiddenDeviceIDs = hidden
+        }
+    }
+    
+    private func saveHiddenDevices() {
+        if let data = try? JSONEncoder().encode(hiddenDeviceIDs) {
+            UserDefaults.standard.set(data, forKey: "hiddenDeviceIDs")
         }
     }
     

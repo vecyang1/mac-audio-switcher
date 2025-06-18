@@ -30,7 +30,7 @@ struct ContentView: View {
                     SectionHeaderView(title: "OUTPUT DEVICES")
                     
                     VStack(spacing: 8) {
-                        ForEach(audioManager.outputDevices) { device in
+                        ForEach(audioManager.outputDevices.filter { !$0.isHidden }) { device in
                             DeviceRowView(
                                 device: device,
                                 isHovered: hoveredDeviceID == device.id,
@@ -63,7 +63,7 @@ struct ContentView: View {
                     SectionHeaderView(title: "INPUT DEVICES")
                     
                     VStack(spacing: 8) {
-                        ForEach(audioManager.inputDevices) { device in
+                        ForEach(audioManager.inputDevices.filter { !$0.isHidden }) { device in
                             DeviceRowView(
                                 device: device,
                                 isHovered: hoveredDeviceID == device.id,

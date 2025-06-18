@@ -178,8 +178,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(headerItem)
         }
         
-        // Add audio output devices
-        let outputDevices = AudioManager.shared.outputDevices
+        // Add audio output devices (excluding hidden ones)
+        let outputDevices = AudioManager.shared.outputDevices.filter { !$0.isHidden }
         if !outputDevices.isEmpty {
             for device in outputDevices {
                 let title = device.isOnline ? device.name : "\(device.name) (Offline)"
@@ -219,8 +219,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(headerItem)
         }
         
-        // Add audio input devices
-        let inputDevices = AudioManager.shared.inputDevices
+        // Add audio input devices (excluding hidden ones)
+        let inputDevices = AudioManager.shared.inputDevices.filter { !$0.isHidden }
         if !inputDevices.isEmpty {
             for device in inputDevices {
                 let title = device.isOnline ? device.name : "\(device.name) (Offline)"

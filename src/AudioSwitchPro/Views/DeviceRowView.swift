@@ -24,7 +24,18 @@ struct DeviceRowView: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            // Active Indicator (moved to left)
+            // Star indicator for favorites
+            if device.isStarred {
+                Image(systemName: "star.fill")
+                    .font(.caption)
+                    .foregroundColor(.yellow)
+                    .frame(width: 16)
+            } else {
+                Color.clear
+                    .frame(width: 16)
+            }
+            
+            // Active Indicator
             if device.isActive {
                 Image(systemName: device.isOutput ? "speaker.wave.3.fill" : "mic.fill")
                     .font(.body)
@@ -230,12 +241,30 @@ struct DeviceContextMenu: View {
     
     @State private var isRecordingShortcut = false
     @State private var eventMonitor: Any?
+    @StateObject private var audioManager = AudioManager.shared
     
     var body: some View {
         Group {
             // Primary action
             Button(action: onSwitchDevice) {
-                Label("Switch to \(device.name)", systemImage: "speaker.wave.2")
+                Label("Switch to \(device.name)", systemImage: device.isOutput ? "speaker.wave.2" : "mic.fill")
+            }
+            
+            Divider()
+            
+            // Star/Unstar
+            Button(action: {
+                audioManager.toggleStar(for: device.id)
+            }) {
+                Label(device.isStarred ? "Remove from Favorites" : "Add to Favorites", 
+                      systemImage: device.isStarred ? "star.slash" : "star")
+            }
+            
+            // Hide device
+            Button(action: {
+                audioManager.hideDevice(device.id)
+            }) {
+                Label("Hide Device", systemImage: "eye.slash")
             }
             
             Divider()

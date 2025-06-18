@@ -114,6 +114,66 @@ struct SettingsView: View {
                         }
                     }
                     
+                    // Hidden Devices Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Hidden Devices")
+                            .font(.headline)
+                        
+                        VStack(alignment: .leading, spacing: 12) {
+                            let hiddenDevices = AudioManager.shared.getHiddenDevices()
+                            
+                            if hiddenDevices.isEmpty {
+                                HStack {
+                                    Image(systemName: "eye.slash")
+                                        .font(.title2)
+                                        .foregroundColor(.secondary.opacity(0.5))
+                                    VStack(alignment: .leading) {
+                                        Text("No hidden devices")
+                                            .font(.body)
+                                            .foregroundColor(.secondary)
+                                        Text("Right-click any device and select \"Hide Device\"")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary.opacity(0.8))
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.vertical, 8)
+                            } else {
+                                ForEach(hiddenDevices) { device in
+                                    HStack {
+                                        Image(systemName: device.transportType.icon)
+                                            .font(.body)
+                                            .foregroundColor(.secondary)
+                                            .frame(width: 24)
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(device.name)
+                                                .font(.body)
+                                            Text("\(device.isOutput ? "Output" : "Input") • \(device.transportType.rawValue)")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Button("Show") {
+                                            AudioManager.shared.unhideDevice(device.id)
+                                        }
+                                        .buttonStyle(.borderless)
+                                    }
+                                    .padding(.vertical, 4)
+                                    
+                                    if device.id != hiddenDevices.last?.id {
+                                        Divider()
+                                    }
+                                }
+                            }
+                        }
+                        .padding()
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .cornerRadius(8)
+                    }
+                    
                     // About Section
                     VStack(alignment: .leading, spacing: 12) {
                         Text("About")
@@ -158,7 +218,7 @@ struct SettingsView: View {
                 .padding()
             }
         }
-        .frame(width: 450, height: 500)
+        .frame(width: 450, height: 600)
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             // Initialize the toggle state based on whether a shortcut exists
