@@ -186,7 +186,11 @@ struct SettingsView: View {
                             HStack {
                                 Toggle("", isOn: .init(
                                     get: { UserDefaults.standard.bool(forKey: "showVirtualDevices") },
-                                    set: { UserDefaults.standard.set($0, forKey: "showVirtualDevices") }
+                                    set: { 
+                                        UserDefaults.standard.set($0, forKey: "showVirtualDevices")
+                                        // Notify menu bar to rebuild
+                                        NotificationCenter.default.post(name: Notification.Name("ShowVirtualDevicesChanged"), object: nil)
+                                    }
                                 ))
                                 
                                 VStack(alignment: .leading, spacing: 4) {

@@ -97,6 +97,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
         
+        // Listen for virtual device visibility changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(audioDevicesChanged(_:)),
+            name: Notification.Name("ShowVirtualDevicesChanged"),
+            object: nil
+        )
+        
         // Check system compatibility - temporarily disabled for build
         // let systemInfo = SystemCompatibility.shared.checkSystemCompatibility()
         // print("🔍 System Compatibility: \(systemInfo.compatibilityLevel)")
@@ -294,8 +302,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(headerItem)
         }
         
-        // Add audio output devices (excluding hidden ones)
-        let outputDevices = AudioManager.shared.outputDevices.filter { !$0.isHidden }
+        // Add audio output devices (excluding hidden ones and respecting virtual device settings)
+        let showVirtualDevices = UserDefaults.standard.bool(forKey: "showVirtualDevices")
+        print("📄 Menubar: Show virtual devices setting = \(showVirtualDevices)")
+        
+        // Debug: Log all output devices before filtering
+        print("📄 Menubar: All output devices before filtering:")
+        for device in AudioManager.shared.outputDevices {
+            print("  - \(device.name): transportType=\(device.transportType), isHidden=\(device.isHidden)")
+        }
+        
+        let outputDevices = AudioManager.shared.outputDevices.filter { device in
+            let shouldShow = !device.isHidden && (showVirtualDevices || device.transportType != .virtual)
+            print("📄 Menubar: Device '\(device.name)' - hidden=\(device.isHidden), transportType=\(device.transportType), showVirtual=\(showVirtualDevices) => show=\(shouldShow)")
+            return shouldShow
+        }
         if !outputDevices.isEmpty {
             for device in outputDevices {
                 let title = device.isOnline ? device.name : "\(device.name) (Offline)"
@@ -335,8 +356,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(headerItem)
         }
         
-        // Add audio input devices (excluding hidden ones)
-        let inputDevices = AudioManager.shared.inputDevices.filter { !$0.isHidden }
+        // Add audio input devices (excluding hidden ones and respecting virtual device settings)
+        let inputDevices = AudioManager.shared.inputDevices.filter { device in
+            let shouldShow = !device.isHidden && (showVirtualDevices || device.transportType != .virtual)
+            print("📄 Menubar: Input Device '\(device.name)' - hidden=\(device.isHidden), transportType=\(device.transportType), showVirtual=\(showVirtualDevices) => show=\(shouldShow)")
+            return shouldShow
+        }
         if !inputDevices.isEmpty {
             for device in inputDevices {
                 let title = device.isOnline ? device.name : "\(device.name) (Offline)"
@@ -385,6 +410,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc private func menuBarIconClicked() {
+        // Rebuild menu to ensure it reflects current settings
+        setupMenuBarMenu()
         // Always show the menu on click (both left and right)
         statusItem?.menu?.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }

@@ -397,29 +397,72 @@ class AudioManager: ObservableObject {
         var transportType: UInt32 = 0
         var dataSize: UInt32 = UInt32(MemoryLayout<UInt32>.size)
         
-        let status = AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &dataSize, &transportType)
-        guard status == noErr else { return .unknown }
-        
-        switch transportType {
-        case kAudioDeviceTransportTypeBluetooth:
-            return .bluetooth
-        case kAudioDeviceTransportTypeUSB:
-            return .usb
-        case kAudioDeviceTransportTypeDisplayPort:
-            return .displayPort
-        case kAudioDeviceTransportTypeHDMI:
-            return .hdmi
-        case kAudioDeviceTransportTypeBuiltIn:
-            return .builtIn
-        case kAudioDeviceTransportTypeVirtual:
-            return .virtual
-        case kAudioDeviceTransportTypeThunderbolt:
-            return .thunderbolt
-        case kAudioDeviceTransportTypeAirPlay:
-            return .airPlay
-        default:
+        // Check if property exists first
+        if !AudioObjectHasProperty(deviceID, &propertyAddress) {
+            print("⚠️ Device \(deviceID) has no transport type property")
+            // For devices without transport type, check name patterns
+            if let name = getDeviceName(deviceID) {
+                let lowercasedName = name.lowercased()
+                if lowercasedName.contains("loopback") ||
+                   lowercasedName.contains("soundflower") ||
+                   lowercasedName.contains("blackhole") ||
+                   lowercasedName.contains("audio hijack") ||
+                   lowercasedName.contains("virtual") {
+                    print("🔍 Detected virtual device by name: \(name)")
+                    return .virtual
+                }
+            }
             return .unknown
         }
+        
+        let status = AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &dataSize, &transportType)
+        guard status == noErr else { 
+            print("⚠️ Failed to get transport type for device \(deviceID), status: \(status)")
+            return .unknown 
+        }
+        
+        let deviceName = getDeviceName(deviceID) ?? "Unknown"
+        
+        let transportTypeResult: AudioDevice.TransportType
+        switch transportType {
+        case kAudioDeviceTransportTypeBluetooth:
+            transportTypeResult = .bluetooth
+        case kAudioDeviceTransportTypeUSB:
+            transportTypeResult = .usb
+        case kAudioDeviceTransportTypeDisplayPort:
+            transportTypeResult = .displayPort
+        case kAudioDeviceTransportTypeHDMI:
+            transportTypeResult = .hdmi
+        case kAudioDeviceTransportTypeBuiltIn:
+            transportTypeResult = .builtIn
+        case kAudioDeviceTransportTypeVirtual:
+            transportTypeResult = .virtual
+            print("🟢 Detected VIRTUAL device via kAudioDeviceTransportTypeVirtual constant")
+        case kAudioDeviceTransportTypeThunderbolt:
+            transportTypeResult = .thunderbolt
+        case kAudioDeviceTransportTypeAirPlay:
+            transportTypeResult = .airPlay
+        default:
+            transportTypeResult = .unknown
+        }
+        
+        print("🔍 Device '\(deviceName)' (ID: \(deviceID)) - Transport Type: \(transportTypeResult) (raw: \(transportType), kVirtual=\(kAudioDeviceTransportTypeVirtual))")
+        
+        // Fallback: Check for known virtual device names if transport type detection fails
+        if transportTypeResult == .unknown {
+            let lowercasedName = deviceName.lowercased()
+            if lowercasedName.contains("loopback") ||
+               lowercasedName.contains("soundflower") ||
+               lowercasedName.contains("blackhole") ||
+               lowercasedName.contains("audio hijack") ||
+               lowercasedName.contains("virtual") ||
+               lowercasedName.contains("aggregate") {
+                print("⚠️ Device '\(deviceName)' detected as virtual based on name pattern")
+                return .virtual
+            }
+        }
+        
+        return transportTypeResult
     }
     
     private func getCurrentOutputDeviceID() -> String? {
