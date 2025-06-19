@@ -6,9 +6,12 @@ struct SettingsView: View {
     @AppStorage("globalShortcut") private var globalShortcut = ""
     @AppStorage("showDockIcon") private var showDockIcon = true
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = false
+    @AppStorage("autoCheckForUpdates") private var autoCheckForUpdates = true
     @State private var enableGlobalShortcut = false
     @State private var isRecordingShortcut = false
     @State private var recordedKeys: [String] = []
+    @State private var showingUpdateNotification = false
+    // @StateObject private var updateService = UpdateService.shared // TODO: Add to Xcode project
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -174,6 +177,100 @@ struct SettingsView: View {
                         .cornerRadius(8)
                     }
                     
+                    // Virtual Devices Section (placed after Hidden Devices to discourage use)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Virtual Devices")
+                            .font(.headline)
+                        
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack {
+                                Toggle("", isOn: .init(
+                                    get: { UserDefaults.standard.bool(forKey: "showVirtualDevices") },
+                                    set: { UserDefaults.standard.set($0, forKey: "showVirtualDevices") }
+                                ))
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Show Virtual Audio Devices")
+                                        .font(.body)
+                                    Text("Enable switching to virtual devices like Loopback Audio (may cause crashes)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                Spacer()
+                            }
+                            
+                            if UserDefaults.standard.bool(forKey: "showVirtualDevices") {
+                                HStack {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundColor(.orange)
+                                    Text("Warning: Virtual devices may cause the app to crash. If this happens, the app will automatically reset to built-in devices on next launch.")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding()
+                                .background(Color.orange.opacity(0.1))
+                                .cornerRadius(6)
+                            }
+                        }
+                        .padding()
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .cornerRadius(8)
+                    }
+                    
+                    // Updates Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("Updates")
+                                .font(.headline)
+                            
+                            Spacer()
+                            
+                            // UpdateBadgeView() // TODO: Add UpdateNotificationView to project
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 12) {
+                            Toggle("Check for updates automatically", isOn: $autoCheckForUpdates)
+                                .onChange(of: autoCheckForUpdates) { newValue in
+                                    // if newValue {
+                                    //     UpdateService.shared.startAutoUpdateCheck()
+                                    // } else {
+                                    //     UpdateService.shared.stopAutoUpdateCheck()
+                                    // }
+                                    print("Auto update check: \(newValue)")
+                                }
+                            
+                            Divider()
+                            
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Current Version: \(getAppVersion())")
+                                        .font(.body)
+                                    // if UpdateService.shared.updateAvailable {
+                                    //     Text("Latest Version: \(UpdateService.shared.latestVersion ?? "")")
+                                    //     .font(.caption)
+                                    //     .foregroundColor(.secondary)
+                                    // }
+                                }
+                                
+                                Spacer()
+                                
+                                Button("Check Now") {
+                                    // UpdateService.shared.checkForUpdates { available in
+                                    //     if available {
+                                    //         showingUpdateNotification = true
+                                    //     }
+                                    // }
+                                    print("Update check will be available after adding UpdateService to project")
+                                }
+                                // .disabled(UpdateService.shared.isChecking)
+                            }
+                        }
+                        .padding()
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .cornerRadius(8)
+                    }
+                    
                     // About Section
                     VStack(alignment: .leading, spacing: 12) {
                         Text("About")
@@ -223,7 +320,15 @@ struct SettingsView: View {
         .onAppear {
             // Initialize the toggle state based on whether a shortcut exists
             enableGlobalShortcut = !globalShortcut.isEmpty
+            
+            // Start auto update check if enabled
+            // if autoCheckForUpdates {
+            //     UpdateService.shared.startAutoUpdateCheck()
+            // }
         }
+        // .sheet(isPresented: $showingUpdateNotification) {
+        //     UpdateNotificationView()
+        // }
     }
     
     @State private var settingsEventMonitor: Any?

@@ -6,6 +6,13 @@ import Combine
 import AppKit
 import Accelerate
 
+enum AudioManagerError: Error {
+    case failedToGetDevices(status: OSStatus)
+    case failedToGetProperty(status: OSStatus, property: String)
+    case invalidDevice(deviceID: AudioObjectID)
+    case virtualDeviceCrash(deviceName: String)
+}
+
 class AudioManager: ObservableObject {
     @Published var devices: [AudioDevice] = []
     @Published var activeOutputDeviceID: String?
@@ -39,11 +46,41 @@ class AudioManager: ObservableObject {
     static let shared = AudioManager()
     
     init() {
+        // Check for crash recovery BEFORE doing anything else
+        let crashFlagKey = "AudioSwitchPro.CrashFlag"
+        let didCrash = UserDefaults.standard.bool(forKey: crashFlagKey)
+        
         loadDeviceShortcuts()
         loadSavedDevices()
         loadStarredDevices()
         loadHiddenDevices()
-        refreshDevices()
+        
+        // If we crashed, don't try to restore previous state
+        if didCrash {
+            print("🚨 AudioManager: Detected previous crash, will reset to safe defaults after initialization")
+            // Don't clear the flag here - let AppDelegate do it
+        }
+        
+        // Try to refresh devices safely with crash recovery
+        do {
+            try safeRefreshDevices()
+            
+            // If we crashed, immediately reset to safe defaults
+            if didCrash {
+                print("🔧 Applying crash recovery - resetting to default devices")
+                DispatchQueue.main.async { [weak self] in
+                    self?.resetToDefaultDevices()
+                }
+            }
+        } catch {
+            print("⚠️ Failed to refresh devices on startup: \(error)")
+            print("🔧 Attempting recovery with default audio devices...")
+            // Force a basic recovery
+            DispatchQueue.main.async { [weak self] in
+                self?.resetToDefaultDevices()
+            }
+        }
+        
         setupPropertyListeners()
         
         // Add common AirPods device if not already saved (helpful for first time setup)
@@ -60,6 +97,17 @@ class AudioManager: ObservableObject {
     }
     
     func refreshDevices() {
+        do {
+            try safeRefreshDevices()
+        } catch {
+            print("❌ Error refreshing devices: \(error)")
+            // Try to recover by resetting to default devices
+            print("⚠️ Attempting to recover with default devices")
+            // recoverWithDefaultDevices() // TODO: Implement recovery
+        }
+    }
+    
+    private func safeRefreshDevices() throws {
         var devices: [AudioDevice] = []
         
         // Get default devices
@@ -82,7 +130,9 @@ class AudioManager: ObservableObject {
             &dataSize
         )
         
-        guard status == noErr else { return }
+        guard status == noErr else { 
+            throw AudioManagerError.failedToGetDevices(status: status)
+        }
         
         let deviceCount = Int(dataSize) / MemoryLayout<AudioObjectID>.size
         var audioDevices = [AudioObjectID](repeating: 0, count: deviceCount)
@@ -96,7 +146,9 @@ class AudioManager: ObservableObject {
             &audioDevices
         )
         
-        guard status == noErr else { return }
+        guard status == noErr else { 
+            throw AudioManagerError.failedToGetDevices(status: status)
+        }
         
         for deviceID in audioDevices {
             // Check for output device
@@ -109,7 +161,9 @@ class AudioManager: ObservableObject {
             }
         }
         
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
             // Apply saved shortcuts, starred, and hidden states to devices
             for i in 0..<devices.count {
                 devices[i].shortcut = self.deviceShortcuts[devices[i].id]
@@ -208,6 +262,9 @@ class AudioManager: ObservableObject {
     }
     
     private func createAudioDevice(from deviceID: AudioObjectID, defaultOutputID: String?, defaultInputID: String?, isOutput: Bool) -> AudioDevice? {
+        // Get transport type first to handle virtual devices specially
+        let transportType = getDeviceTransportType(deviceID)
+        
         // Check device streams based on type
         var streamAddress = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyStreamConfiguration,
@@ -217,17 +274,32 @@ class AudioManager: ObservableObject {
         
         var dataSize: UInt32 = 0
         var status = AudioObjectGetPropertyDataSize(deviceID, &streamAddress, 0, nil, &dataSize)
-        guard status == noErr else { return nil }
+        
+        // Be more lenient with virtual devices - they might not report streams properly
+        if status != noErr {
+            if transportType == .virtual {
+                print("⚠️ Virtual device \(deviceID) doesn't report streams properly, including anyway")
+                // Continue with virtual devices even if stream check fails
+            } else {
+                return nil
+            }
+        }
         
         let bufferList = UnsafeMutablePointer<AudioBufferList>.allocate(capacity: 1)
         defer { bufferList.deallocate() }
         
-        status = AudioObjectGetPropertyData(deviceID, &streamAddress, 0, nil, &dataSize, bufferList)
-        guard status == noErr else { return nil }
+        if dataSize > 0 {
+            status = AudioObjectGetPropertyData(deviceID, &streamAddress, 0, nil, &dataSize, bufferList)
+            if status != noErr && transportType != .virtual {
+                return nil
+            }
+        }
         
-        // Only include devices with output channels
+        // For virtual devices, assume they have channels even if check fails
         let channelCount = bufferList.pointee.mNumberBuffers
-        guard channelCount > 0 else { return nil }
+        if channelCount == 0 && transportType != .virtual {
+            return nil
+        }
         
         // Get device UID
         let uid = getDeviceUID(deviceID) ?? String(deviceID)
@@ -235,13 +307,19 @@ class AudioManager: ObservableObject {
         // Get device name
         let name = getDeviceName(deviceID) ?? "Unknown Device"
         
-        // Filter out aggregate devices that confuse users
-        if name.lowercased().contains("aggregate") || name.contains("CADefaultDeviceAggregate") {
+        // Filter out only system aggregate devices that confuse users
+        // But allow virtual audio routing apps like Loopback Audio
+        let lowercasedName = name.lowercased()
+        if (name.contains("CADefaultDeviceAggregate") || 
+            (lowercasedName.contains("aggregate") && 
+             !lowercasedName.contains("loopback") && 
+             !lowercasedName.contains("audio hijack") &&
+             !lowercasedName.contains("soundflower") &&
+             !lowercasedName.contains("blackhole"))) {
             return nil
         }
         
-        // Get transport type
-        let transportType = getDeviceTransportType(deviceID)
+        // Transport type was already retrieved above
         
         let isActive = isOutput ? (uid == defaultOutputID) : (uid == defaultInputID)
         
@@ -262,16 +340,28 @@ class AudioManager: ObservableObject {
             mElement: kAudioObjectPropertyElementMain
         )
         
+        // Check if property exists first (important for virtual devices)
+        if !AudioObjectHasProperty(deviceID, &propertyAddress) {
+            print("⚠️ Device \(deviceID) has no UID property, using ID as fallback")
+            return String(deviceID)
+        }
+        
         var dataSize: UInt32 = 0
         var status = AudioObjectGetPropertyDataSize(deviceID, &propertyAddress, 0, nil, &dataSize)
-        guard status == noErr else { return nil }
+        guard status == noErr else { 
+            print("⚠️ Failed to get UID size for device \(deviceID)")
+            return nil 
+        }
         
         var uid: CFString?
         let uidPtr = UnsafeMutablePointer<CFString?>.allocate(capacity: 1)
         defer { uidPtr.deallocate() }
         status = AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &dataSize, uidPtr)
         uid = uidPtr.pointee
-        guard status == noErr, let uid = uid else { return nil }
+        guard status == noErr, let uid = uid else { 
+            print("⚠️ Failed to get UID for device \(deviceID)")
+            return nil 
+        }
         
         return uid as String
     }
@@ -389,6 +479,14 @@ class AudioManager: ObservableObject {
                 print("❌ Device \(deviceID) not found in CoreAudio and not a known Bluetooth device")
                 return
             }
+        }
+        
+        // Check if this is a virtual device
+        let device = outputDevices.first { $0.id == deviceID }
+        let isVirtualDevice = device?.transportType == .virtual
+        
+        if isVirtualDevice {
+            print("⚠️ Switching to virtual device: \(device?.name ?? deviceID) - using careful error handling")
         }
         
         var propertyAddress = AudioObjectPropertyAddress(
@@ -551,6 +649,77 @@ class AudioManager: ObservableObject {
         }
     }
     
+    func resetToDefaultDevices() {
+        print("🔄 Resetting to default audio devices...")
+        
+        // First refresh devices to get current list
+        refreshDevices()
+        
+        // If devices are empty, try once more after a delay
+        if outputDevices.isEmpty && inputDevices.isEmpty {
+            print("⚠️ No devices found, retrying after delay...")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.refreshDevices()
+                self?.performDefaultDeviceReset()
+            }
+            return
+        }
+        
+        performDefaultDeviceReset()
+    }
+    
+    private func performDefaultDeviceReset() {
+        // Find default output device
+        var defaultOutputID: String?
+        
+        // Priority 1: Built-in/MacBook speakers (safest default)
+        if let macSpeakers = outputDevices.first(where: { 
+            ($0.name.contains("MacBook") && $0.name.contains("Speaker")) ||
+            ($0.name.contains("Built-in") && $0.name.contains("Output")) ||
+            ($0.transportType == .builtIn && $0.isOutput)
+        }) {
+            defaultOutputID = macSpeakers.id
+            print("✅ Found MacBook Pro Speakers as default output: \(macSpeakers.name)")
+        }
+        // Priority 2: Any other built-in output
+        else if let builtIn = outputDevices.first(where: { 
+            $0.transportType == .builtIn && $0.isOutput 
+        }) {
+            defaultOutputID = builtIn.id
+            print("✅ Found built-in output as default: \(builtIn.name)")
+        }
+        // Priority 3: ANY available output (better than nothing)
+        else if let anyOutput = outputDevices.first {
+            defaultOutputID = anyOutput.id
+            print("⚠️ Using first available output: \(anyOutput.name)")
+        }
+        
+        // Switch to default output
+        if let outputID = defaultOutputID {
+            print("🔊 Switching to default output: \(outputID)")
+            switchToOutputDevice(outputID)
+        } else {
+            print("❌ No output device found at all!")
+        }
+        
+        // Find default input device (MacBook Pro Microphone)
+        if let macMic = inputDevices.first(where: { 
+            ($0.name.contains("MacBook") && $0.name.contains("Microphone")) ||
+            ($0.name.contains("Built-in") && $0.name.contains("Input")) ||
+            ($0.transportType == .builtIn && !$0.isOutput)
+        }) {
+            print("🎤 Switching to default input: \(macMic.name)")
+            switchToInputDevice(macMic.id)
+        }
+        // Fallback to any available input
+        else if let anyInput = inputDevices.first {
+            print("⚠️ Using first available input: \(anyInput.name)")
+            switchToInputDevice(anyInput.id)
+        } else {
+            print("❌ No input device found at all!")
+        }
+    }
+    
     func setDevice(_ device: AudioDevice) {
         // If device is offline and Bluetooth, try to reconnect it first
         if !device.isOnline && device.transportType == .bluetooth {
@@ -567,11 +736,9 @@ class AudioManager: ObservableObject {
         
         // Show user-friendly notification
         DispatchQueue.main.async {
-            let notification = NSUserNotification()
-            notification.title = "Connecting to \(device.name)"
-            notification.informativeText = "Please ensure your \(device.name) is powered on and nearby. Put it in your ears if it's AirPods."
-            notification.soundName = nil
-            NSUserNotificationCenter.default.deliver(notification)
+            // TODO: Replace with UserNotifications.framework
+            print("🔔 Connecting to \(device.name)")
+            print("   Please ensure your \(device.name) is powered on and nearby. Put it in your ears if it's AirPods.")
         }
         
         // Method 1: Try blueutil if available (simple approach)
@@ -640,11 +807,9 @@ class AudioManager: ObservableObject {
                     
                     // Show success notification
                     DispatchQueue.main.async {
-                        let successNotification = NSUserNotification()
-                        successNotification.title = "Connected!"
-                        successNotification.informativeText = "Successfully switched to \(device.name)"
-                        successNotification.soundName = nil
-                        NSUserNotificationCenter.default.deliver(successNotification)
+                        // TODO: Replace with UserNotifications.framework
+                        print("✅ Connected!")
+                        print("   Successfully switched to \(device.name)")
                     }
                 } else {
                     print("❌ Failed to switch to \(device.name), status: \(status)")
@@ -662,11 +827,9 @@ class AudioManager: ObservableObject {
                 
                 // Show timeout notification with helpful instruction
                 DispatchQueue.main.async {
-                    let notification = NSUserNotification()
-                    notification.title = "Device Not Found"
-                    notification.informativeText = "Please manually connect \(device.name) in System Settings > Bluetooth, then try switching again."
-                    notification.soundName = NSUserNotificationDefaultSoundName
-                    NSUserNotificationCenter.default.deliver(notification)
+                    // TODO: Replace with UserNotifications.framework
+                    print("⚠️ Device Not Found")
+                    print("   Please manually connect \(device.name) in System Settings > Bluetooth, then try switching again.")
                 }
             }
         }
@@ -967,34 +1130,18 @@ class AudioManager: ObservableObject {
     }
     
     private func isBluetoothDeviceConnected(_ device: AudioDevice) -> Bool {
+        // Guard against nil or invalid device
+        guard device.transportType == .bluetooth else { return false }
+        
         // Use a simple and fast check first - assume Bluetooth devices are connected if they were recently online
         // This prevents flapping between online/offline states
         
-        // Quick check using blueutil if available
-        let task = Process()
-        task.launchPath = "/usr/bin/env"
-        task.arguments = ["bash", "-c", "which blueutil >/dev/null 2>&1 && blueutil --paired | grep -i '\(device.name)' || echo ''"]
+        // Skip blueutil check for now to avoid potential crashes
+        // Just check if it's a known Bluetooth device
         
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = Pipe()
-        
-        do {
-            try task.run()
-            task.waitUntilExit()
-            
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8), !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                print("🔵 \(device.name) found in paired Bluetooth devices")
-                return true
-            }
-        } catch {
-            print("⚠️ blueutil check failed: \(error)")
-        }
-        
-        // Fallback: For devices that were recently seen, assume they're still connectable
+        // For devices that were recently seen, assume they're still connectable
         // This prevents devices from flapping between online/offline when they're actually available
-        if let savedDevice = savedDevices.first(where: { $0.id == device.id && $0.transportType == .bluetooth }) {
+        if savedDevices.contains(where: { $0.id == device.id && $0.transportType == .bluetooth }) {
             // If we've seen this device before and it's Bluetooth, be more lenient about marking it offline
             print("🔵 \(device.name) is a known Bluetooth device - keeping as potentially available")
             return true

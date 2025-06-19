@@ -4,6 +4,10 @@ struct ContentView: View {
     @StateObject private var audioManager = AudioManager.shared
     @State private var showSettings = false
     @State private var hoveredDeviceID: String?
+    @State private var showingVirtualDeviceWarning = false
+    @State private var pendingVirtualDevice: AudioDevice?
+    @AppStorage("showVirtualDevices") private var showVirtualDevices = false
+    @AppStorage("virtualDeviceWarningShown") private var virtualDeviceWarningShown = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -30,17 +34,25 @@ struct ContentView: View {
                     SectionHeaderView(title: "OUTPUT DEVICES")
                     
                     VStack(spacing: 8) {
-                        ForEach(audioManager.outputDevices.filter { !$0.isHidden }) { device in
+                        ForEach(audioManager.outputDevices.filter { device in
+                            !device.isHidden && (showVirtualDevices || device.transportType != .virtual)
+                        }) { device in
                             DeviceRowView(
                                 device: device,
                                 isHovered: hoveredDeviceID == device.id,
                                 onSwitchDevice: {
-                                    audioManager.setDevice(device)
-                                    
-                                    // Keep the window visible and focused after switching
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                        if let window = NSApp.windows.first {
-                                            window.makeKeyAndOrderFront(nil)
+                                    // Check if switching to virtual device and warn if needed
+                                    if device.transportType == .virtual && !virtualDeviceWarningShown {
+                                        pendingVirtualDevice = device
+                                        showingVirtualDeviceWarning = true
+                                    } else {
+                                        audioManager.setDevice(device)
+                                        
+                                        // Keep the window visible and focused after switching
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                            if let window = NSApp.windows.first {
+                                                window.makeKeyAndOrderFront(nil)
+                                            }
                                         }
                                     }
                                 },
@@ -63,13 +75,21 @@ struct ContentView: View {
                     SectionHeaderView(title: "INPUT DEVICES")
                     
                     VStack(spacing: 8) {
-                        ForEach(audioManager.inputDevices.filter { !$0.isHidden }) { device in
+                        ForEach(audioManager.inputDevices.filter { device in
+                            !device.isHidden && (showVirtualDevices || device.transportType != .virtual)
+                        }) { device in
                             DeviceRowView(
                                 device: device,
                                 isHovered: hoveredDeviceID == device.id,
                                 showInputLevel: device.isActive,
                                 onSwitchDevice: {
-                                    audioManager.setDevice(device)
+                                    // Check if switching to virtual device and warn if needed
+                                    if device.transportType == .virtual && !virtualDeviceWarningShown {
+                                        pendingVirtualDevice = device
+                                        showingVirtualDeviceWarning = true
+                                    } else {
+                                        audioManager.setDevice(device)
+                                    }
                                     
                                     // Keep the window visible and focused after switching
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -112,6 +132,28 @@ struct ContentView: View {
         .onDisappear {
             // Stop monitoring when window disappears
             audioManager.stopInputMonitoring()
+        }
+        .alert("Virtual Device Warning", isPresented: $showingVirtualDeviceWarning) {
+            Button("Cancel", role: .cancel) {
+                pendingVirtualDevice = nil
+            }
+            Button("Proceed", role: .destructive) {
+                virtualDeviceWarningShown = true
+                if let device = pendingVirtualDevice {
+                    audioManager.setDevice(device)
+                }
+                pendingVirtualDevice = nil
+            }
+        } message: {
+            Text("""
+            Virtual audio devices like Loopback Audio may cause the app to crash.
+            
+            If the app crashes:
+            • It will automatically reset to MacBook speakers/microphone on next launch
+            • You can disable virtual devices in Settings
+            
+            Do you want to proceed?
+            """)
         }
     }
 }

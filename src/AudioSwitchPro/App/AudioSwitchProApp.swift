@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreAudio
 
 @main
 struct AudioSwitchProApp: App {
@@ -63,6 +64,11 @@ struct AudioSwitchProApp: App {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
+    
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // Check for crash recovery BEFORE anything else initializes
+        checkAndHandleCrashRecovery()
+    }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Set dock icon visibility based on user preference
@@ -133,28 +139,138 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return false // Keep app running in background when window closed
     }
     
+    func applicationWillTerminate(_ notification: Notification) {
+        // Clear crash flag on normal termination
+        UserDefaults.standard.set(false, forKey: "AudioSwitchPro.CrashFlag")
+        UserDefaults.standard.synchronize()
+    }
+    
+    private func checkAndHandleCrashRecovery() {
+        let crashFlagKey = "AudioSwitchPro.CrashFlag"
+        let didCrash = UserDefaults.standard.bool(forKey: crashFlagKey)
+        
+        if didCrash {
+            print("🚨 AppDelegate: Detected previous crash, performing system-level audio reset")
+            
+            // FIRST: Reset at system level before AudioManager initializes
+            resetSystemAudioToBuiltIn()
+            
+            // Clear the crash flag
+            UserDefaults.standard.set(false, forKey: crashFlagKey)
+            UserDefaults.standard.synchronize()
+            
+            // Show a notification to the user
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                let alert = NSAlert()
+                alert.messageText = "Audio Devices Reset"
+                alert.informativeText = "AudioSwitch Pro detected a crash from a virtual device. Your audio has been reset to MacBook speakers and microphone for safety."
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
+            }
+        } else {
+            // Set crash flag for next launch detection
+            UserDefaults.standard.set(true, forKey: crashFlagKey)
+            UserDefaults.standard.synchronize()
+        }
+    }
+    
+    private func resetSystemAudioToBuiltIn() {
+        // Get all devices
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        var dataSize: UInt32 = 0
+        AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &propertyAddress, 0, nil, &dataSize)
+        
+        let deviceCount = Int(dataSize) / MemoryLayout<AudioObjectID>.size
+        var audioDevices = [AudioObjectID](repeating: 0, count: deviceCount)
+        
+        AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &propertyAddress, 0, nil, &dataSize, &audioDevices)
+        
+        // Find and set built-in output
+        var outputAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        for deviceID in audioDevices {
+            if let name = getDeviceName(deviceID) {
+                if name.contains("MacBook") && name.contains("Speaker") ||
+                   name.contains("Built-in") && name.contains("Output") {
+                    var mutableID = deviceID
+                    AudioObjectSetPropertyData(
+                        AudioObjectID(kAudioObjectSystemObject),
+                        &outputAddress,
+                        0,
+                        nil,
+                        UInt32(MemoryLayout<AudioObjectID>.size),
+                        &mutableID
+                    )
+                    print("✅ Reset output to: \(name)")
+                    break
+                }
+            }
+        }
+        
+        // Find and set built-in input
+        var inputAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        for deviceID in audioDevices {
+            if let name = getDeviceName(deviceID) {
+                if name.contains("MacBook") && name.contains("Microphone") ||
+                   name.contains("Built-in") && name.contains("Input") {
+                    var mutableID = deviceID
+                    AudioObjectSetPropertyData(
+                        AudioObjectID(kAudioObjectSystemObject),
+                        &inputAddress,
+                        0,
+                        nil,
+                        UInt32(MemoryLayout<AudioObjectID>.size),
+                        &mutableID
+                    )
+                    print("✅ Reset input to: \(name)")
+                    break
+                }
+            }
+        }
+    }
+    
+    private func getDeviceName(_ deviceID: AudioObjectID) -> String? {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioObjectPropertyName,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        var dataSize: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(deviceID, &propertyAddress, 0, nil, &dataSize) == noErr else { return nil }
+        
+        var name: CFString = "" as CFString
+        guard AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &dataSize, &name) == noErr else { return nil }
+        
+        return name as String
+    }
+    
     private func setupMenuBarIcon() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         if let button = statusItem?.button {
-            // Show both speaker and mic icons
-            let attributedString = NSMutableAttributedString()
-            
-            // Speaker icon
-            let speakerAttachment = NSTextAttachment()
-            speakerAttachment.image = NSImage(systemSymbolName: "speaker.wave.2", accessibilityDescription: "Output")
-            speakerAttachment.image?.size = NSSize(width: 16, height: 16)
-            speakerAttachment.image?.isTemplate = true
-            attributedString.append(NSAttributedString(attachment: speakerAttachment))
-            
-            // Mic icon
-            let micAttachment = NSTextAttachment()
-            micAttachment.image = NSImage(systemSymbolName: "mic", accessibilityDescription: "Input")
-            micAttachment.image?.size = NSSize(width: 16, height: 16)
-            micAttachment.image?.isTemplate = true
-            attributedString.append(NSAttributedString(attachment: micAttachment))
-            
-            button.attributedTitle = attributedString
+            // Use a distinctive rounded speaker icon with circle background
+            if let image = NSImage(systemSymbolName: "speaker.circle.fill", accessibilityDescription: "AudioSwitch Pro") {
+                image.isTemplate = true // This makes it adapt to dark/light mode
+                // Make it slightly larger than default menu bar icons for distinction
+                image.size = NSSize(width: 18, height: 18)
+                button.image = image
+            }
             button.action = #selector(menuBarIconClicked)
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
