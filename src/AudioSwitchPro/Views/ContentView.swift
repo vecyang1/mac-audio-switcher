@@ -120,16 +120,6 @@ struct ContentView: View {
             // Footer
             FooterView()
                 .padding()
-            
-            // Debug: Manual refresh button
-            #if DEBUG
-            Button("Debug: Refresh Devices") {
-                audioManager.refreshDevices()
-                // Force menubar update
-                NotificationCenter.default.post(name: Notification.Name("AudioDevicesChanged"), object: nil)
-            }
-            .padding(.bottom, 8)
-            #endif
         }
         .background(Color(NSColor.windowBackgroundColor))
         .sheet(isPresented: $showSettings) {

@@ -1,8 +1,19 @@
 import SwiftUI
 import ServiceManagement
+import AppKit
+import UniformTypeIdentifiers
+
+// Silent Mode App Model
+struct SilentModeApp: Identifiable, Codable {
+    let id: String // Bundle ID
+    let name: String
+    let path: String
+    var isEnabled: Bool
+}
 
 struct SettingsView: View {
     @AppStorage("autoStartEnabled") private var autoStartEnabled = false
+    @AppStorage("startHiddenOnLogin") private var startHiddenOnLogin = false
     @AppStorage("globalShortcut") private var globalShortcut = ""
     @AppStorage("showDockIcon") private var showDockIcon = true
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = false
@@ -11,6 +22,8 @@ struct SettingsView: View {
     @State private var isRecordingShortcut = false
     @State private var recordedKeys: [String] = []
     @State private var showingUpdateNotification = false
+    @State private var silentModeApps: [SilentModeApp] = []
+    @State private var selectedSilentApps: Set<String> = []
     // @StateObject private var updateService = UpdateService.shared // TODO: Add to Xcode project
     @Environment(\.dismiss) private var dismiss
     
@@ -46,6 +59,11 @@ struct SettingsView: View {
                                 .onChange(of: autoStartEnabled) { newValue in
                                     configureAutoStart(newValue)
                                 }
+                            
+                            Toggle("Start hidden on login", isOn: $startHiddenOnLogin)
+                                .disabled(!autoStartEnabled)
+                                .padding(.leading, 20)
+                                .help("When enabled, the app will start in the background without showing the main window")
                             
                             Divider()
                             
@@ -170,6 +188,100 @@ struct SettingsView: View {
                                         Divider()
                                     }
                                 }
+                            }
+                        }
+                        .padding()
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .cornerRadius(8)
+                    }
+                    
+                    // Silent Mode Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Silent Mode")
+                            .font(.headline)
+                        
+                        VStack(alignment: .leading, spacing: 12) {
+                            // Description
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("If the current active app is in this list, AudioSwitch Pro will not respond to shortcuts.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                HStack {
+                                    Image(systemName: "lightbulb.fill")
+                                        .font(.caption)
+                                        .foregroundColor(.yellow)
+                                    Text("Check the \"Disable Shortcuts\" to ignore shortcuts when using the app.")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .padding(.bottom, 8)
+                            
+                            // Apps List
+                            VStack(spacing: 0) {
+                                if silentModeApps.isEmpty {
+                                    VStack(spacing: 8) {
+                                        Image(systemName: "speaker.wave.2.fill")
+                                            .font(.largeTitle)
+                                            .foregroundColor(.secondary.opacity(0.3))
+                                        Text("No apps in Silent Mode")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 40)
+                                } else {
+                                    // Header
+                                    HStack {
+                                        Text("App")
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.secondary)
+                                        Spacer()
+                                        Text("Disable Shortcuts")
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 4)
+                                    
+                                    Divider()
+                                    
+                                    // App rows
+                                    ForEach(silentModeApps) { app in
+                                        silentModeAppRow(app: app)
+                                        if app.id != silentModeApps.last?.id {
+                                            Divider()
+                                                .padding(.leading, 44)
+                                        }
+                                    }
+                                }
+                            }
+                            .background(Color(NSColor.textBackgroundColor))
+                            .cornerRadius(6)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                            )
+                            
+                            // Controls
+                            HStack {
+                                Button(action: addSilentModeApp) {
+                                    Image(systemName: "plus")
+                                        .frame(width: 20, height: 20)
+                                }
+                                .buttonStyle(.plain)
+                                
+                                Button(action: removeSilentModeApps) {
+                                    Image(systemName: "minus")
+                                        .frame(width: 20, height: 20)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(selectedSilentApps.isEmpty)
+                                
+                                Spacer()
                             }
                         }
                         .padding()
@@ -319,11 +431,14 @@ struct SettingsView: View {
                 .padding()
             }
         }
-        .frame(width: 450, height: 600)
+        .frame(minWidth: 450, idealWidth: 450, maxWidth: 600, minHeight: 600, idealHeight: 800, maxHeight: 1000)
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             // Initialize the toggle state based on whether a shortcut exists
             enableGlobalShortcut = !globalShortcut.isEmpty
+            
+            // Load silent mode apps
+            loadSilentModeApps()
             
             // Start auto update check if enabled
             // if autoCheckForUpdates {
@@ -333,6 +448,114 @@ struct SettingsView: View {
         // .sheet(isPresented: $showingUpdateNotification) {
         //     UpdateNotificationView()
         // }
+    }
+    
+    // MARK: - Silent Mode Methods
+    
+    private func silentModeAppRow(app: SilentModeApp) -> some View {
+        HStack {
+            Button(action: {
+                if selectedSilentApps.contains(app.id) {
+                    selectedSilentApps.remove(app.id)
+                } else {
+                    selectedSilentApps.insert(app.id)
+                }
+            }) {
+                HStack(spacing: 8) {
+                    Image(nsImage: NSWorkspace.shared.icon(forFile: app.path))
+                        .resizable()
+                        .frame(width: 24, height: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(app.name)
+                            .font(.system(size: 12))
+                            .foregroundColor(.primary)
+                        Text(app.path)
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    
+                    Spacer()
+                    
+                    Toggle("", isOn: Binding(
+                        get: { app.isEnabled },
+                        set: { newValue in
+                            toggleSilentModeApp(app.id, enabled: newValue)
+                        }
+                    ))
+                    .toggleStyle(.checkbox)
+                }
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(selectedSilentApps.contains(app.id) ? Color.accentColor.opacity(0.1) : Color.clear)
+        }
+    }
+    
+    private func addSilentModeApp() {
+        let openPanel = NSOpenPanel()
+        openPanel.title = "Select Application"
+        openPanel.message = "Choose an application to add to Silent Mode"
+        openPanel.canChooseDirectories = false
+        openPanel.canChooseFiles = true
+        openPanel.allowsMultipleSelection = true
+        openPanel.allowedContentTypes = [.application]
+        openPanel.directoryURL = URL(fileURLWithPath: "/Applications")
+        
+        openPanel.begin { response in
+            guard response == .OK else { return }
+            
+            for url in openPanel.urls {
+                if let bundle = Bundle(url: url),
+                   let bundleID = bundle.bundleIdentifier,
+                   let appName = bundle.object(forInfoDictionaryKey: "CFBundleName") as? String ?? bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String {
+                    
+                    let newApp = SilentModeApp(
+                        id: bundleID,
+                        name: appName,
+                        path: url.path,
+                        isEnabled: true
+                    )
+                    
+                    // Avoid duplicates
+                    if !silentModeApps.contains(where: { $0.id == bundleID }) {
+                        silentModeApps.append(newApp)
+                        saveSilentModeApps()
+                    }
+                }
+            }
+        }
+    }
+    
+    private func removeSilentModeApps() {
+        silentModeApps.removeAll { app in
+            selectedSilentApps.contains(app.id)
+        }
+        selectedSilentApps.removeAll()
+        saveSilentModeApps()
+    }
+    
+    private func toggleSilentModeApp(_ appID: String, enabled: Bool) {
+        if let index = silentModeApps.firstIndex(where: { $0.id == appID }) {
+            silentModeApps[index].isEnabled = enabled
+            saveSilentModeApps()
+        }
+    }
+    
+    private func loadSilentModeApps() {
+        if let data = UserDefaults.standard.data(forKey: "silentModeApps"),
+           let apps = try? JSONDecoder().decode([SilentModeApp].self, from: data) {
+            silentModeApps = apps
+        }
+    }
+    
+    private func saveSilentModeApps() {
+        if let data = try? JSONEncoder().encode(silentModeApps) {
+            UserDefaults.standard.set(data, forKey: "silentModeApps")
+        }
     }
     
     @State private var settingsEventMonitor: Any?
@@ -453,11 +676,10 @@ struct SettingsView: View {
     }
     
     private func getAppVersion() -> String {
-        if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
-           let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
-            return "\(version) (\(build))"
+        if let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
+            return build
         }
-        return "1.0"
+        return "1"
     }
 }
 

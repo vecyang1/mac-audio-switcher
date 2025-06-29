@@ -43,6 +43,11 @@ class AudioManager: ObservableObject {
     private let updateInterval: TimeInterval = 0.1 // 10 Hz update rate
     private var windowObserver: Any?
     
+    // Silent mode properties
+    @Published var isSilentModeActive: Bool = false
+    private var currentActiveAppBundleID: String?
+    private var workspaceObserver: NSObjectProtocol?
+    
     static let shared = AudioManager()
     
     init() {
@@ -82,6 +87,7 @@ class AudioManager: ObservableObject {
         }
         
         setupPropertyListeners()
+        setupSilentModeMonitoring()
         
         // Add common AirPods device if not already saved (helpful for first time setup)
         addCommonBluetoothDevicesIfNeeded()
@@ -423,7 +429,7 @@ class AudioManager: ObservableObject {
         
         let deviceName = getDeviceName(deviceID) ?? "Unknown"
         
-        let transportTypeResult: AudioDevice.TransportType
+        var transportTypeResult: AudioDevice.TransportType
         switch transportType {
         case kAudioDeviceTransportTypeBluetooth:
             transportTypeResult = .bluetooth
@@ -438,6 +444,9 @@ class AudioManager: ObservableObject {
         case kAudioDeviceTransportTypeVirtual:
             transportTypeResult = .virtual
             print("🟢 Detected VIRTUAL device via kAudioDeviceTransportTypeVirtual constant")
+        case 0x76697274: // 'virt' in ASCII - fallback for virtual device
+            transportTypeResult = .virtual
+            print("🟢 Detected VIRTUAL device via fallback 'virt' value")
         case kAudioDeviceTransportTypeThunderbolt:
             transportTypeResult = .thunderbolt
         case kAudioDeviceTransportTypeAirPlay:
@@ -446,21 +455,21 @@ class AudioManager: ObservableObject {
             transportTypeResult = .unknown
         }
         
-        print("🔍 Device '\(deviceName)' (ID: \(deviceID)) - Transport Type: \(transportTypeResult) (raw: \(transportType), kVirtual=\(kAudioDeviceTransportTypeVirtual))")
-        
-        // Fallback: Check for known virtual device names if transport type detection fails
-        if transportTypeResult == .unknown {
+        // Double-check for virtual devices by name if not already detected
+        if transportTypeResult != .virtual {
             let lowercasedName = deviceName.lowercased()
             if lowercasedName.contains("loopback") ||
                lowercasedName.contains("soundflower") ||
                lowercasedName.contains("blackhole") ||
                lowercasedName.contains("audio hijack") ||
-               lowercasedName.contains("virtual") ||
-               lowercasedName.contains("aggregate") {
-                print("⚠️ Device '\(deviceName)' detected as virtual based on name pattern")
-                return .virtual
+               lowercasedName.contains("virtual") {
+                print("🟡 Overriding transport type to virtual based on device name: \(deviceName)")
+                transportTypeResult = .virtual
             }
         }
+        
+        print("🔍 Device '\(deviceName)' (ID: \(deviceID)) - Transport Type: \(transportTypeResult) (raw: \(transportType), kVirtual=\(kAudioDeviceTransportTypeVirtual))")
+        
         
         return transportTypeResult
     }
@@ -1274,6 +1283,12 @@ class AudioManager: ObservableObject {
         // Clear all existing shortcuts
         ShortcutManager.shared.clearAllShortcuts()
         
+        // Check if silent mode is active
+        if isSilentModeActive {
+            print("🔇 Silent mode is active - skipping shortcut registration")
+            return
+        }
+        
         // Register global panel toggle shortcut (optional)
         if let globalShortcut = UserDefaults.standard.globalShortcut, !globalShortcut.isEmpty {
             print("📝 Registering global panel shortcut: \(globalShortcut)")
@@ -1295,6 +1310,57 @@ class AudioManager: ObservableObject {
         }
         
         print("✅ Shortcut registration complete")
+    }
+    
+    // MARK: - Silent Mode Management
+    
+    private func setupSilentModeMonitoring() {
+        // Get initial active app
+        updateActiveApp()
+        
+        // Monitor app switches
+        workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.updateActiveApp()
+        }
+    }
+    
+    private func updateActiveApp() {
+        if let activeApp = NSWorkspace.shared.frontmostApplication {
+            currentActiveAppBundleID = activeApp.bundleIdentifier
+            checkSilentModeStatus()
+        }
+    }
+    
+    private func checkSilentModeStatus() {
+        guard let currentApp = currentActiveAppBundleID else {
+            isSilentModeActive = false
+            return
+        }
+        
+        let wasActive = isSilentModeActive
+        
+        // Load silent mode apps from UserDefaults
+        if let data = UserDefaults.standard.data(forKey: "silentModeApps"),
+           let silentApps = try? JSONDecoder().decode([SilentModeApp].self, from: data) {
+            // Check if current app is in silent mode list and enabled
+            isSilentModeActive = silentApps.contains { app in
+                app.id == currentApp && app.isEnabled
+            }
+        } else {
+            isSilentModeActive = false
+        }
+        
+        print("🔇 Silent mode active: \(isSilentModeActive) for app: \(currentApp ?? "nil")")
+        
+        // If silent mode state changed, refresh shortcuts
+        if wasActive != isSilentModeActive {
+            print("🔄 Silent mode state changed from \(wasActive) to \(isSilentModeActive)")
+            updateShortcutRegistrations()
+        }
     }
     
     // MARK: - Input Level Monitoring

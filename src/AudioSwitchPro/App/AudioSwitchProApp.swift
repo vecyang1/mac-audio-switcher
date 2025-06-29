@@ -8,7 +8,7 @@ struct AudioSwitchProApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .frame(minWidth: 400, idealWidth: 460, minHeight: 450, idealHeight: 520)
+                .frame(minWidth: 520, idealWidth: 540, maxWidth: 800, minHeight: 450, idealHeight: 520, maxHeight: 900)
                 .onAppear {
                     restoreWindowSize()
                 }
@@ -23,16 +23,39 @@ struct AudioSwitchProApp: App {
     private func restoreWindowSize() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             if let window = NSApplication.shared.windows.first {
-                // Restore saved window frame if available
-                if let frameString = UserDefaults.standard.string(forKey: "MainWindowFrame"),
-                   let frame = NSRectFromString(frameString) as NSRect? {
-                    window.setFrame(frame, display: true)
-                } else {
-                    // Set default size (less rectangular)
+                // Check if this is a new session (app was fully quit and restarted)
+                let isNewSession = UserDefaults.standard.bool(forKey: "NewSession")
+                UserDefaults.standard.set(false, forKey: "NewSession")
+                
+                // Restore saved window size
+                var width: CGFloat = 540
+                var height: CGFloat = 520
+                
+                if let savedWidth = UserDefaults.standard.object(forKey: "MainWindowWidth") as? CGFloat,
+                   let savedHeight = UserDefaults.standard.object(forKey: "MainWindowHeight") as? CGFloat {
+                    width = savedWidth
+                    height = savedHeight
+                }
+                
+                // For new sessions, center the window; otherwise restore position
+                if isNewSession {
+                    // Set size and center
                     let frame = NSRect(x: window.frame.origin.x, 
                                      y: window.frame.origin.y, 
-                                     width: 460, 
-                                     height: 520)
+                                     width: width, 
+                                     height: height)
+                    window.setFrame(frame, display: true)
+                    window.center()
+                } else if let frameString = UserDefaults.standard.string(forKey: "MainWindowFrame"),
+                          let frame = NSRectFromString(frameString) as NSRect? {
+                    // Restore full frame including position
+                    window.setFrame(frame, display: true)
+                } else {
+                    // First launch - set default size and center
+                    let frame = NSRect(x: window.frame.origin.x, 
+                                     y: window.frame.origin.y, 
+                                     width: width, 
+                                     height: height)
                     window.setFrame(frame, display: true)
                     window.center()
                 }
@@ -46,6 +69,8 @@ struct AudioSwitchProApp: App {
                     object: window,
                     queue: .main
                 ) { _ in
+                    UserDefaults.standard.set(window.frame.size.width, forKey: "MainWindowWidth")
+                    UserDefaults.standard.set(window.frame.size.height, forKey: "MainWindowHeight")
                     UserDefaults.standard.set(NSStringFromRect(window.frame), forKey: "MainWindowFrame")
                 }
                 
@@ -64,6 +89,7 @@ struct AudioSwitchProApp: App {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
+    private var wasLaunchedAtLogin = false
     
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Check for crash recovery BEFORE anything else initializes
@@ -71,6 +97,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Check if launched at login
+        wasLaunchedAtLogin = checkIfLaunchedAtLogin()
+        
+        // Mark this as a new session for window centering
+        UserDefaults.standard.set(true, forKey: "NewSession")
+        
         // Set dock icon visibility based on user preference
         let showDockIcon = UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? true
         NSApp.setActivationPolicy(showDockIcon ? .regular : .accessory)
@@ -129,9 +161,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Initialize shortcut manager
         ShortcutManager.shared.setupShortcuts()
         
-        // Always show the main window on first launch
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            self.showMainWindow()
+        // Show main window unless app was launched at login and user wants it hidden
+        let startHiddenOnLogin = UserDefaults.standard.bool(forKey: "startHiddenOnLogin")
+        if !wasLaunchedAtLogin || !startHiddenOnLogin {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.showMainWindow()
+            }
+        } else {
+            print("🫥 App launched at login with 'start hidden' enabled - skipping main window")
         }
     }
     
@@ -461,6 +498,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func audioDevicesChanged(_ notification: Notification) {
         // Update the menu when devices change
         setupMenuBarMenu()
+    }
+    
+    private func checkIfLaunchedAtLogin() -> Bool {
+        // Method 1: Check if launched by LoginItems
+        if let loginItemsIdentifier = ProcessInfo.processInfo.environment["SMLoginItemIdentifier"] {
+            print("🔍 Detected launch from login items: \(loginItemsIdentifier)")
+            return true
+        }
+        
+        // Method 2: Check system uptime - if less than 60 seconds, likely launched at login
+        let systemUptime = ProcessInfo.processInfo.systemUptime
+        if systemUptime < 60 {
+            print("🔍 System uptime is \(Int(systemUptime)) seconds - likely launched at login")
+            return true
+        }
+        
+        // Method 3: Check launch arguments for any login-related flags
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-SMLoginItem") || args.contains("--login-item") {
+            print("🔍 Found login item argument in launch args")
+            return true
+        }
+        
+        print("🔍 App launched normally (not at login)")
+        return false
     }
     
     // private func showCompatibilityAlert(_ systemInfo: SystemCompatibility.SystemInfo) {

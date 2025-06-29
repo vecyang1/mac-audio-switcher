@@ -23,7 +23,7 @@ struct DeviceRowView: View {
     }
     
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             // Star indicator for favorites
             if device.isStarred {
                 Image(systemName: "star.fill")
