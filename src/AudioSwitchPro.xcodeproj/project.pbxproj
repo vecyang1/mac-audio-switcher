@@ -15,9 +15,15 @@
 		1A00000C1234567890ABCDEF /* DeviceRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00000B1234567890ABCDEF /* DeviceRowView.swift */; };
 		1A00000E1234567890ABCDEF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00000D1234567890ABCDEF /* SettingsView.swift */; };
 		1A0000101234567890ABCDEF /* ShortcutManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00000F1234567890ABCDEF /* ShortcutManager.swift */; };
+		3D7D129816F421F97B3F5236 /* LicenseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E683A99A050B50FA27DC366 /* LicenseManager.swift */; };
+		7107062C423A209393C32867 /* TrialBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C521BD87FFF60C1DD2D3D9B /* TrialBannerView.swift */; };
+		D6D590295B376B69BCA435AB /* ActivationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D2AA52D5883895924E63688 /* ActivationView.swift */; };
+		FAA6091DB07FA6178D706833 /* LicenseStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B822B83A65BA64D2780809E /* LicenseStatusView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0C521BD87FFF60C1DD2D3D9B /* TrialBannerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrialBannerView.swift; path = AudioSwitchPro/Views/TrialBannerView.swift; sourceTree = "<group>"; };
+		0E683A99A050B50FA27DC366 /* LicenseManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LicenseManager.swift; path = AudioSwitchPro/Services/LicenseManager.swift; sourceTree = "<group>"; };
 		1A0000001234567890ABCDEF /* AudioSwitchProApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSwitchProApp.swift; sourceTree = "<group>"; };
 		1A0000021234567890ABCDEF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		1A0000041234567890ABCDEF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -29,6 +35,8 @@
 		1A00000F1234567890ABCDEF /* ShortcutManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutManager.swift; sourceTree = "<group>"; };
 		1AFFFFF01234567890ABCDEF /* AudioSwitchPro.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AudioSwitchPro.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1AFFFFF11234567890ABCDEF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		6B822B83A65BA64D2780809E /* LicenseStatusView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LicenseStatusView.swift; path = AudioSwitchPro/Views/LicenseStatusView.swift; sourceTree = "<group>"; };
+		8D2AA52D5883895924E63688 /* ActivationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivationView.swift; path = AudioSwitchPro/Views/ActivationView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -95,6 +103,9 @@
 				1A0000021234567890ABCDEF /* ContentView.swift */,
 				1A00000B1234567890ABCDEF /* DeviceRowView.swift */,
 				1A00000D1234567890ABCDEF /* SettingsView.swift */,
+				8D2AA52D5883895924E63688 /* ActivationView.swift */,
+				0C521BD87FFF60C1DD2D3D9B /* TrialBannerView.swift */,
+				6B822B83A65BA64D2780809E /* LicenseStatusView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -103,6 +114,7 @@
 			isa = PBXGroup;
 			children = (
 				1A0000091234567890ABCDEF /* AudioManager.swift */,
+				0E683A99A050B50FA27DC366 /* LicenseManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -191,12 +203,72 @@
 				1A00000C1234567890ABCDEF /* DeviceRowView.swift in Sources */,
 				1A00000E1234567890ABCDEF /* SettingsView.swift in Sources */,
 				1A0000101234567890ABCDEF /* ShortcutManager.swift in Sources */,
+				3D7D129816F421F97B3F5236 /* LicenseManager.swift in Sources */,
+				D6D590295B376B69BCA435AB /* ActivationView.swift in Sources */,
+				7107062C423A209393C32867 /* TrialBannerView.swift in Sources */,
+				FAA6091DB07FA6178D706833 /* LicenseStatusView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		1AFFFF011234567890ABCDEF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = AudioSwitchPro/AudioSwitchPro.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7S7587F553;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AudioSwitchPro/Info.plist;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vecyang.AudioSwitchPro;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		1AFFFF021234567890ABCDEF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = AudioSwitchPro/AudioSwitchPro.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7S7587F553;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AudioSwitchPro/Info.plist;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vecyang.AudioSwitchPro;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 		1AFFFFFE1234567890ABCDEF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -307,62 +379,6 @@
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
-			};
-			name = Release;
-		};
-		1AFFFF011234567890ABCDEF /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = AudioSwitchPro/AudioSwitchPro.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = AudioSwitchPro/Info.plist;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vecyang.AudioSwitchPro;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-			};
-			name = Debug;
-		};
-		1AFFFF021234567890ABCDEF /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = AudioSwitchPro/AudioSwitchPro.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = AudioSwitchPro/Info.plist;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vecyang.AudioSwitchPro;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
 		};

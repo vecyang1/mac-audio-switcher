@@ -1,0 +1,8 @@
+// AudioSwitch Pro Build Configuration
+// This file helps set the team automatically
+
+// Your team ID will be set here once we find it
+DEVELOPMENT_TEAM = 
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = Apple Development
+PRODUCT_BUNDLE_IDENTIFIER = com.vecyang.AudioSwitchPro

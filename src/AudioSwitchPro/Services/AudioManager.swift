@@ -521,6 +521,14 @@ class AudioManager: ObservableObject {
     }
     
     func switchToOutputDevice(_ deviceID: String) {
+        // Check trial/license status
+        let licenseManager = LicenseManager.shared
+        if licenseManager.isTrialExpired() && !licenseManager.isActivated {
+            print("⚠️ Trial expired - device switching disabled")
+            NotificationCenter.default.post(name: Notification.Name("ShowActivationRequired"), object: nil)
+            return
+        }
+        
         guard let audioObjectID = getAudioObjectID(from: deviceID) else {
             // If device not found in CoreAudio, check if it's a known Bluetooth device
             if let savedDevice = savedDevices.first(where: { $0.id == deviceID && $0.transportType == .bluetooth }) {
@@ -576,6 +584,14 @@ class AudioManager: ObservableObject {
     }
     
     func switchToInputDevice(_ deviceID: String) {
+        // Check trial/license status
+        let licenseManager = LicenseManager.shared
+        if licenseManager.isTrialExpired() && !licenseManager.isActivated {
+            print("⚠️ Trial expired - device switching disabled")
+            NotificationCenter.default.post(name: Notification.Name("ShowActivationRequired"), object: nil)
+            return
+        }
+        
         guard let audioObjectID = getAudioObjectID(from: deviceID) else {
             print("❌ Input device \(deviceID) not found in CoreAudio")
             return
@@ -773,6 +789,15 @@ class AudioManager: ObservableObject {
     }
     
     func setDevice(_ device: AudioDevice) {
+        // Check trial/license status
+        let licenseManager = LicenseManager.shared
+        if licenseManager.isTrialExpired() && !licenseManager.isActivated {
+            print("⚠️ Trial expired - device switching disabled")
+            // Show activation prompt
+            NotificationCenter.default.post(name: Notification.Name("ShowActivationRequired"), object: nil)
+            return
+        }
+        
         // If device is offline and Bluetooth, try to reconnect it first
         if !device.isOnline && device.transportType == .bluetooth {
             print("🔵 Attempting to reconnect Bluetooth device: \(device.name)")

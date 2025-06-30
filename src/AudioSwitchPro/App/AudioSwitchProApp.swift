@@ -4,6 +4,8 @@ import CoreAudio
 @main
 struct AudioSwitchProApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @StateObject private var licenseManager = LicenseManager.shared
+    @State private var showActivation = false
     
     var body: some Scene {
         WindowGroup {
@@ -11,6 +13,13 @@ struct AudioSwitchProApp: App {
                 .frame(minWidth: 520, idealWidth: 540, maxWidth: 800, minHeight: 450, idealHeight: 520, maxHeight: 900)
                 .onAppear {
                     restoreWindowSize()
+                    checkTrialStatus()
+                }
+                .sheet(isPresented: $showActivation) {
+                    ActivationView()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: Notification.Name("ShowActivationRequired"))) { _ in
+                    showActivation = true
                 }
         }
         .windowStyle(.hiddenTitleBar)
@@ -82,6 +91,20 @@ struct AudioSwitchProApp: App {
                 ) { _ in
                     UserDefaults.standard.set(NSStringFromRect(window.frame), forKey: "MainWindowFrame")
                 }
+            }
+        }
+    }
+    
+    private func checkTrialStatus() {
+        // If trial hasn't started yet, start it
+        if !licenseManager.hasTrialStarted() && !licenseManager.isActivated {
+            licenseManager.startTrial()
+        }
+        
+        // Show activation if trial expired
+        if licenseManager.isTrialExpired() && !licenseManager.isActivated {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                showActivation = true
             }
         }
     }

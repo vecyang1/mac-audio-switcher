@@ -334,6 +334,19 @@ struct SettingsView: View {
                         .cornerRadius(8)
                     }
                     
+                    // License Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("License")
+                            .font(.headline)
+                        
+                        VStack(alignment: .leading, spacing: 12) {
+                            LicenseStatusView()
+                        }
+                        .padding()
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .cornerRadius(8)
+                    }
+                    
                     // Updates Section
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {

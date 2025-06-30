@@ -11,6 +11,11 @@ struct ContentView: View {
     
     var body: some View {
         VStack(spacing: 0) {
+            // Trial Banner
+            TrialBannerView()
+                .padding(.horizontal)
+                .padding(.top, 8)
+            
             // Header
             HeaderView(showSettings: $showSettings)
                 .padding()
