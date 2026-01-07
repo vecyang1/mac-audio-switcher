@@ -22,8 +22,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		0C521BD87FFF60C1DD2D3D9B /* TrialBannerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrialBannerView.swift; path = AudioSwitchPro/Views/TrialBannerView.swift; sourceTree = "<group>"; };
-		0E683A99A050B50FA27DC366 /* LicenseManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LicenseManager.swift; path = AudioSwitchPro/Services/LicenseManager.swift; sourceTree = "<group>"; };
+		0C521BD87FFF60C1DD2D3D9B /* TrialBannerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrialBannerView.swift; path = TrialBannerView.swift; sourceTree = "<group>"; };
+		0E683A99A050B50FA27DC366 /* LicenseManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LicenseManager.swift; path = LicenseManager.swift; sourceTree = "<group>"; };
 		1A0000001234567890ABCDEF /* AudioSwitchProApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSwitchProApp.swift; sourceTree = "<group>"; };
 		1A0000021234567890ABCDEF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		1A0000041234567890ABCDEF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -35,8 +35,8 @@
 		1A00000F1234567890ABCDEF /* ShortcutManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutManager.swift; sourceTree = "<group>"; };
 		1AFFFFF01234567890ABCDEF /* AudioSwitchPro.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AudioSwitchPro.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1AFFFFF11234567890ABCDEF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		6B822B83A65BA64D2780809E /* LicenseStatusView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LicenseStatusView.swift; path = AudioSwitchPro/Views/LicenseStatusView.swift; sourceTree = "<group>"; };
-		8D2AA52D5883895924E63688 /* ActivationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivationView.swift; path = AudioSwitchPro/Views/ActivationView.swift; sourceTree = "<group>"; };
+		6B822B83A65BA64D2780809E /* LicenseStatusView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LicenseStatusView.swift; path = LicenseStatusView.swift; sourceTree = "<group>"; };
+		8D2AA52D5883895924E63688 /* ActivationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivationView.swift; path = ActivationView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */

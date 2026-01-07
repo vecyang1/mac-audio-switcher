@@ -7,7 +7,7 @@ class LicenseManager: ObservableObject {
     // Configuration
     private let productId = "D8nvR78n"
     private let apiKey = "459c750d7730496f9e6c57191808633d"
-    private let adminCode = "AdmincodeV"
+    private let adminCode = "vecsadmincode"
     private let trialDays = 1 // Set to 1 day as requested
     private let apiBaseURL = "https://api.zylvie.com"
     

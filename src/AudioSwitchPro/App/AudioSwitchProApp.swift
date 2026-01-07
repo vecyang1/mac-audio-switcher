@@ -319,13 +319,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             mElement: kAudioObjectPropertyElementMain
         )
         
-        var dataSize: UInt32 = 0
-        guard AudioObjectGetPropertyDataSize(deviceID, &propertyAddress, 0, nil, &dataSize) == noErr else { return nil }
+        var stringRef: CFString? = nil
+        var dataSize = UInt32(MemoryLayout<CFString?>.size)
         
-        var name: CFString = "" as CFString
-        guard AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &dataSize, &name) == noErr else { return nil }
+        let status = AudioObjectGetPropertyData(
+            deviceID,
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize,
+            &stringRef
+        )
         
-        return name as String
+        if status == noErr, let ref = stringRef {
+            return ref as String
+        }
+        
+        return nil
     }
     
     private func setupMenuBarIcon() {

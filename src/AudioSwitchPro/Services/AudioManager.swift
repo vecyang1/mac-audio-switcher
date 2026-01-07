@@ -43,6 +43,9 @@ class AudioManager: ObservableObject {
     private let updateInterval: TimeInterval = 0.1 // 10 Hz update rate
     private var windowObserver: Any?
     
+    // Lock for thread safety
+    private let deviceAccessLock = NSLock()
+    
     // Silent mode properties
     @Published var isSilentModeActive: Bool = false
     private var currentActiveAppBundleID: String?
@@ -55,6 +58,13 @@ class AudioManager: ObservableObject {
         let crashFlagKey = "AudioSwitchPro.CrashFlag"
         let didCrash = UserDefaults.standard.bool(forKey: crashFlagKey)
         
+        // Clear crash flag immediately to prevent loop if we crash later in init
+        // But we keep 'didCrash' local var to decide whether to reset later
+        // This is safer than waiting for AppDelegate
+        if didCrash {
+             UserDefaults.standard.set(false, forKey: crashFlagKey)
+        }
+
         loadDeviceShortcuts()
         loadSavedDevices()
         loadStarredDevices()
@@ -114,6 +124,9 @@ class AudioManager: ObservableObject {
     }
     
     private func safeRefreshDevices() throws {
+        deviceAccessLock.lock()
+        defer { deviceAccessLock.unlock() }
+
         var devices: [AudioDevice] = []
         
         // Get default devices
@@ -291,8 +304,13 @@ class AudioManager: ObservableObject {
             }
         }
         
-        let bufferList = UnsafeMutablePointer<AudioBufferList>.allocate(capacity: 1)
-        defer { bufferList.deallocate() }
+        // ALLOCATE SAFETY: Use byte count from dataSize to ensure we don't overflow
+        // AudioBufferList has a variable length array, so standard allocation is risky
+        let allocSize = max(Int(dataSize), MemoryLayout<AudioBufferList>.stride)
+        let bufferListPtr = UnsafeMutableRawPointer.allocate(byteCount: allocSize, alignment: MemoryLayout<AudioBufferList>.alignment)
+        defer { bufferListPtr.deallocate() }
+        
+        let bufferList = bufferListPtr.bindMemory(to: AudioBufferList.self, capacity: 1)
         
         if dataSize > 0 {
             status = AudioObjectGetPropertyData(deviceID, &streamAddress, 0, nil, &dataSize, bufferList)
@@ -352,24 +370,23 @@ class AudioManager: ObservableObject {
             return String(deviceID)
         }
         
-        var dataSize: UInt32 = 0
-        var status = AudioObjectGetPropertyDataSize(deviceID, &propertyAddress, 0, nil, &dataSize)
-        guard status == noErr else { 
-            print("⚠️ Failed to get UID size for device \(deviceID)")
-            return nil 
+        var stringRef: CFString? = nil
+        var dataSize = UInt32(MemoryLayout<CFString?>.size)
+        
+        let status = AudioObjectGetPropertyData(
+            deviceID,
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize,
+            &stringRef
+        )
+        
+        if status == noErr, let ref = stringRef {
+            return ref as String
         }
         
-        var uid: CFString?
-        let uidPtr = UnsafeMutablePointer<CFString?>.allocate(capacity: 1)
-        defer { uidPtr.deallocate() }
-        status = AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &dataSize, uidPtr)
-        uid = uidPtr.pointee
-        guard status == noErr, let uid = uid else { 
-            print("⚠️ Failed to get UID for device \(deviceID)")
-            return nil 
-        }
-        
-        return uid as String
+        return nil
     }
     
     private func getDeviceName(_ deviceID: AudioObjectID) -> String? {
@@ -379,18 +396,23 @@ class AudioManager: ObservableObject {
             mElement: kAudioObjectPropertyElementMain
         )
         
-        var dataSize: UInt32 = 0
-        var status = AudioObjectGetPropertyDataSize(deviceID, &propertyAddress, 0, nil, &dataSize)
-        guard status == noErr else { return nil }
+        var stringRef: CFString? = nil
+        var dataSize = UInt32(MemoryLayout<CFString?>.size)
         
-        var name: CFString?
-        let namePtr = UnsafeMutablePointer<CFString?>.allocate(capacity: 1)
-        defer { namePtr.deallocate() }
-        status = AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &dataSize, namePtr)
-        name = namePtr.pointee
-        guard status == noErr, let name = name else { return nil }
+        let status = AudioObjectGetPropertyData(
+            deviceID,
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize,
+            &stringRef
+        )
         
-        return name as String
+        if status == noErr, let ref = stringRef {
+            return ref as String
+        }
+        
+        return nil
     }
     
     private func getDeviceTransportType(_ deviceID: AudioObjectID) -> AudioDevice.TransportType {
@@ -1479,13 +1501,17 @@ class AudioManager: ObservableObject {
         
         rms /= Float(channelCount)
         
-        // Convert to decibels and normalize
+        // Converts to decibels and normalize
         let db = 20 * log10(max(0.000001, rms))
         let normalized = (db + 60) / 60 // Map -60dB to 0dB to 0.0 to 1.0
         
-        // Smooth the value
-        currentInputLevel = (currentInputLevel * 0.7) + (normalized * 0.3)
-        currentInputLevel = max(0, min(1, currentInputLevel))
+        // Update on main thread to avoid race conditions with currentInputLevel
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            // Smooth the value
+            self.currentInputLevel = (self.currentInputLevel * 0.7) + (normalized * 0.3)
+            self.currentInputLevel = max(0, min(1, self.currentInputLevel))
+        }
     }
     
     private func updateInputLevels() {
