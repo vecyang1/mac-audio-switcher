@@ -110,7 +110,7 @@ struct AudioSwitchProApp: App {
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem?
     private var wasLaunchedAtLogin = false
     
@@ -349,17 +349,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 image.size = NSSize(width: 18, height: 18)
                 button.image = image
             }
-            button.action = #selector(menuBarIconClicked)
-            button.target = self
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         
         // Create the menu
-        setupMenuBarMenu()
+        let menu = NSMenu()
+        menu.delegate = self
+        statusItem?.menu = menu
     }
     
-    private func setupMenuBarMenu() {
-        let menu = NSMenu()
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
         
         // Add current output device header
         let currentOutputDevice = AudioManager.shared.outputDevices.first { $0.isActive }
@@ -475,29 +474,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let quitItem = NSMenuItem(title: "Quit AudioSwitch Pro", action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
-        
-        statusItem?.menu = menu
-    }
-    
-    @objc private func menuBarIconClicked() {
-        // Rebuild menu to ensure it reflects current settings
-        setupMenuBarMenu()
-        // Always show the menu on click (both left and right)
-        statusItem?.menu?.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }
     
     @objc private func switchToDevice(_ sender: NSMenuItem) {
         guard let device = sender.representedObject as? AudioDevice else { return }
         AudioManager.shared.setDevice(device)
-        
-        // Update menu item states
-        if let menu = statusItem?.menu {
-            for item in menu.items {
-                if let itemDevice = item.representedObject as? AudioDevice {
-                    item.state = itemDevice.id == device.id ? .on : .off
-                }
-            }
-        }
     }
     
     @objc private func showMainPanel() {
@@ -529,8 +510,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc private func audioDevicesChanged(_ notification: Notification) {
-        // Update the menu when devices change
-        setupMenuBarMenu()
+        // No need to manually rebuild the menu, it will be updated when the user clicks on it
     }
     
     private func checkIfLaunchedAtLogin() -> Bool {
